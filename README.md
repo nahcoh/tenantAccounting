@@ -16,27 +16,22 @@
 *   **Tailwind CSS** (UI Styling)
 *   **React Router** (Navigation)
 
-### Backend (In Progress)
+### Backend
 *   **Java 17**
 *   **Spring Boot 3.2**
 *   **Spring Data JPA**
-*   **Spring Security + JWT** (예정)
-*   **MySQL / H2**
+*   **Spring Security + JWT** (구현 예정)
+*   **MySQL**
 
 ## 📂 프로젝트 구조
 
 ```
 tenant_record/
 ├── frontend/             # React 프론트엔드 프로젝트
-│   ├── src/
-│   │   ├── TenantHousingAppV3.jsx  # 메인 앱 (통합 버전)
-│   │   ├── TenantAuth.jsx          # 로그인/회원가입 화면
-│   │   └── ...
-│   └── ...
-├── backend/              # Spring Boot 백엔드 프로젝트 (기존 com.starter 확장 예정)
+│   └── src/
+├── backend/              # Spring Boot 백엔드 프로젝트
+│   └── src/main/java/com/starter/
 ├── docs/                 # 기획 및 설계 문서
-│   ├── PROJECT_HANDOFF.md  # 프로젝트 상세 명세
-│   └── INTEGRATION_GUIDE.md # 연동 가이드
 └── ...
 ```
 
@@ -48,22 +43,27 @@ cd frontend
 npm install
 npm run dev
 ```
-브라우저에서 `http://localhost:5173` 접속
+> 브라우저에서 `http://localhost:5173` 접속
 
 ### Backend 실행
 ```bash
 cd backend
 ./gradlew bootRun
 ```
-(현재 초기 설정 단계입니다.)
+> 서버가 `http://localhost:8080`에서 실행됩니다.
 
 ## 📝 개발 진행 상황
 - [x] 프론트엔드 환경 구축 (Vite + React + Tailwind)
 - [x] UI 프로토타입 통합 (V1, V2 기능을 V3로 통합)
 - [x] 로그인/회원가입 UI 구현
-- [ ] 백엔드 환경 설정 (Spring Security, JWT)
-- [ ] DB 스키마 설계 및 Entity 구현
-- [ ] API 연동
+- [x] **백엔드: 기본 환경 설정 (Spring Boot, MySQL)**
+- [x] **백엔드: DB 엔티티, 리포지토리, DTO 구현 완료**
+- [x] **백엔드: 핵심 서비스 및 컨트롤러 API 구현 완료**
+- [ ] API 연동 (프론트-백엔드)
+- [ ] 인증/인가 기능 최종 구현 (Spring Security + JWT)
+
+> **💡 개발 참고사항**
+> 현재 백엔드 API는 개발 편의를 위해 **모든 요청을 인증 없이 허용**하도록 설정되어 있습니다. (`backend/src/main/java/com/starter/config/SecurityConfig.java` 참고) 따라서 별도의 로그인 없이 모든 기능을 테스트할 수 있습니다.
 
 ---
 **Note:** 이 프로젝트는 기존 `com.starter` 템플릿을 기반으로 확장 개발 중입니다.
