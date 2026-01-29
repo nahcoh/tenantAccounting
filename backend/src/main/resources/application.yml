@@ -1,21 +1,23 @@
 spring:
   application:
-    name: ddalkkak-backend
+    name: tenant-accounting-backend
+  flyway:
+    enabled: false
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ddalkkak}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/tenantAccounting}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: org.hibernate.dialect.MySQLDialect
 
   data:
     redis:
@@ -42,63 +44,64 @@ springdoc:
     tags-sorter: alpha
 
 # Kakao Local API Configuration
-kakao:
-  api:
-    key: ${KAKAO_REST_API_KEY:test-api-key-for-development}
-    base-url: https://dapi.kakao.com
-    timeout: 5000
+#kakao:
+#  api:
+#    key: ${KAKAO_REST_API_KEY:test-api-key-for-development}
+#    base-url: https://dapi.kakao.com
+#    timeout: 5000
 
 # Claude AI Configuration
-claude:
-  api:
-    key: ${CLAUDE_API_KEY:test-api-key-for-development}
-    model: claude-sonnet-4-20250514
-    timeout: 30000
-    max-tokens: 4096
+#claude:
+#  api:
+#    key: ${CLAUDE_API_KEY:test-api-key-for-development}
+#    model: claude-sonnet-4-20250514
+#    timeout: 30000
+#    max-tokens: 4096
 
 # Langfuse Configuration
-langfuse:
-  api:
-    public-key: ${LANGFUSE_PUBLIC_KEY:}
-    secret-key: ${LANGFUSE_SECRET_KEY:}
-    base-url: ${LANGFUSE_BASE_URL:https://cloud.langfuse.com}
+#langfuse:
+#  api:
+#    public-key: ${LANGFUSE_PUBLIC_KEY:}
+#    secret-key: ${LANGFUSE_SECRET_KEY:}
+#    base-url: ${LANGFUSE_BASE_URL:https://cloud.langfuse.com}
 
 # OpenTelemetry Configuration for Langfuse
-management:
-  tracing:
-    sampling:
-      probability: 1.0
-  otlp:
-    tracing:
-      endpoint: ${LANGFUSE_BASE_URL:https://cloud.langfuse.com}/api/public/otel/v1/traces
-      headers:
-        Authorization: Basic ${LANGFUSE_AUTH_STRING:}
+#management:
+#  tracing:
+#    sampling:
+#      probability: 1.0
+#  otlp:
+#    tracing:
+#      endpoint: ${LANGFUSE_BASE_URL:https://cloud.langfuse.com}/api/public/otel/v1/traces
+#      headers:
+#        Authorization: Basic ${LANGFUSE_AUTH_STRING:}
 
 # Sentry Configuration
 sentry:
-  dsn: ${SENTRY_DSN:}
-  environment: ${SENTRY_ENVIRONMENT:development}
-  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:1.0}
-  send-default-pii: false
-  enable-tracing: true
-  logging:
-    minimum-event-level: warn
-    minimum-breadcrumb-level: info
+  enabled: false
+#  dsn: ${SENTRY_DSN:}
+#  environment: ${SENTRY_ENVIRONMENT:development}
+#  traces-sample-rate: ${SENTRY_TRACES_SAMPLE_RATE:1.0}
+#  send-default-pii: false
+#  enable-tracing: true
+#  logging:
+#    minimum-event-level: warn
+#    minimum-breadcrumb-level: info
 
 # Resilience4j Configuration
-resilience4j:
-  circuitbreaker:
-    instances:
-      claudeApi:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-        eventConsumerBufferSize: 10
-  timelimiter:
-    instances:
-      claudeApi:
-        timeoutDuration: 30s
+#resilience4j:
+#  circuitbreaker:
+#    instances:
+#      claudeApi:
+#        registerHealthIndicator: true
+#        slidingWindowSize: 10
+#        minimumNumberOfCalls: 5
+#        permittedNumberOfCallsInHalfOpenState: 3
+#        automaticTransitionFromOpenToHalfOpenEnabled: true
+#        waitDurationInOpenState: 10s
+#        failureRateThreshold: 50
+#        eventConsumerBufferSize: 10
+#  timelimiter:
+#    instances:
+#      claudeApi:
+#        timeoutDuration: 30s
