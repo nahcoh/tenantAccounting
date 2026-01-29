@@ -27,9 +27,9 @@ INSERT INTO payments (id, user_id, name, category, amount, due_date, is_recurrin
 
 -- Mock Utility Data (for user_id = 1)
 -- Assuming 'created_at' column exists in utilities table as well
-INSERT INTO utilities (id, user_id, `type`, year_month, amount, usage_amount, unit, provider, is_synced, created_at) VALUES
-(1, 1, 'ELECTRICITY', '2024-03', 38000, 250, 'kWh', '한국전력', FALSE, CURRENT_TIMESTAMP),
-(2, 1, 'GAS', '2024-03', 65000, 50, 'm³', '서울도시가스', FALSE, CURRENT_TIMESTAMP);
+-- INSERT INTO utilities (id, user_id, `type`, year_month, amount, usage_amount, unit, provider, is_synced, created_at) VALUES
+-- (1, 1, 'ELECTRICITY', '2024-03', 38000, 250, 'kWh', '한국전력', FALSE, CURRENT_TIMESTAMP),
+-- (2, 1, 'GAS', '2024-03', 65000, 50, 'm³', '서울도시가스', FALSE, CURRENT_TIMESTAMP);
 
 -- Mock Document Data (for user_id = 1) for testing POST /api/documents/upload
 INSERT INTO documents (id, user_id, name, category, file_path, is_required, uploaded_at) VALUES

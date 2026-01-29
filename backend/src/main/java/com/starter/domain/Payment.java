@@ -4,6 +4,7 @@ import com.starter.enums.PaymentCategory;
 import com.starter.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

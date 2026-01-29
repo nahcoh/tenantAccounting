@@ -12,8 +12,8 @@ export default function TenantHousingAppV3() {
   
   // V3 States (Cost & Calendar)
   const [selectedDate, setSelectedDate] = useState(null);
-  const [calendarYear, setCalendarYear] = useState(2024);
-  const [calendarMonth, setCalendarMonth] = useState(3); // 1-12
+  const [calendarYear, setCalendarYear] = useState(2026);
+  const [calendarMonth, setCalendarMonth] = useState(1); // 1-12
   
   // API Data State
   const [calendarData, setCalendarData] = useState({ payments: [], totalAmount: 0, paidAmount: 0, upcomingAmount: 0 });
