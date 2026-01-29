@@ -1,0 +1,48 @@
+# Gradle build output
+build
+.gradle
+bin
+
+# Gradle wrapper JAR (keep gradle wrapper properties)
+!gradle/wrapper/gradle-wrapper.jar
+
+# Environment files (should be injected at runtime)
+.env
+.env.local
+.env.development
+.env.production
+application-local.yml
+application-dev.yml
+
+# Testing
+*.test.java
+*Test.java
+*Tests.java
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.classpath
+.project
+.settings
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+CLAUDE.md
+docs
+
+# CI/CD
+.github
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db

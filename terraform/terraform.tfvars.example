@@ -1,0 +1,66 @@
+# AWS Configuration
+aws_region   = "ap-northeast-1"
+project_name = "starter"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+
+# ECS Configuration
+frontend_cpu           = "256"
+frontend_memory        = "512"
+backend_cpu            = "512"
+backend_memory         = "1024"
+frontend_desired_count = 1
+backend_desired_count  = 1
+
+# Frontend Environment Variables (optional - customize as needed)
+# Note: NEXT_PUBLIC_API_BASE_URL is automatically set from ALB DNS
+frontend_environment = [
+  # Add your project-specific environment variables here
+  # Example:
+  # {
+  #   name  = "NEXT_PUBLIC_YOUR_API_KEY"
+  #   value = "your_api_key"
+  # }
+]
+
+# Backend Environment Variables
+# Note: SPRING_DATASOURCE_URL is automatically set from RDS endpoint
+backend_environment = [
+  {
+    name  = "SPRING_DATASOURCE_USERNAME"
+    value = "postgres"
+  },
+  {
+    name  = "SPRING_DATASOURCE_PASSWORD"
+    value = "your_secure_password_here"  # Match with db_password below
+  },
+  {
+    name  = "SPRING_PROFILES_ACTIVE"
+    value = "prod"
+  }
+  # Add your project-specific environment variables here
+  # Example:
+  # {
+  #   name  = "YOUR_API_KEY"
+  #   value = "your_api_key_value"
+  # },
+  # {
+  #   name  = "REDIS_HOST"
+  #   value = "your-redis-endpoint"
+  # },
+  # {
+  #   name  = "REDIS_PORT"
+  #   value = "6379"
+  # }
+]
+
+# RDS Configuration
+db_name              = "starter"
+db_username          = "postgres"
+db_password          = "your_secure_password_here"  # Change this!
+db_engine_version    = "15.14"
+db_instance_class    = "db.t3.small"
+db_allocated_storage = 20
+db_multi_az          = true
+skip_final_snapshot  = false  # Set to true for dev/test only
