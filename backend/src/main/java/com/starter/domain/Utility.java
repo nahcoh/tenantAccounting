@@ -27,7 +27,7 @@ public class Utility {
     @Column(nullable = false)
     private UtilityType type;
 
-    @Column(name = "year_month", nullable = false, length = 7)
+    @Column(name = "`year_month`", nullable = false, length = 7)
     private String yearMonth; // "YYYY-MM"
 
     @Column(nullable = false, precision = 10, scale = 0)

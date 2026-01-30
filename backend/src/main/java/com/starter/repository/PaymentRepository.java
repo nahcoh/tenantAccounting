@@ -16,4 +16,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // 특정 유저의 특정 기간 내 모든 결제 내역(정기/비정기 포함) 조회
     List<Payment> findByUserIdAndDueDateBetween(Long userId, LocalDate start, LocalDate end);
+
+    void deleteByUserId(Long userId);
 }
