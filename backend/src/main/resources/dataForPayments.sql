@@ -22,3 +22,5 @@ INSERT INTO payments (user_id, name, category, amount, due_date, is_recurring, a
 -- 2월 데이터 (테스트용)
 (1, '2월 월세', 'RENT', 500000, '2026-02-25', 0, 1, 'UPCOMING', CURRENT_TIMESTAMP),
 (1, '2월 통신비', 'RENT', 80000, '2026-02-10', 0, 1, 'UPCOMING', CURRENT_TIMESTAMP);
+
+ALTER TABLE users MODIFY COLUMN password VARCHAR(255) NULL;
