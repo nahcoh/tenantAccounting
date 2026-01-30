@@ -31,7 +31,10 @@ export default function TenantHousingAppV3() {
       const url = `http://localhost:8080/api/payments/calendar/${calendarYear}/${calendarMonth}`;
       console.log("Fetching data from URL:", url);
       try {
-        const response = await axios.get(url);
+        const token = localStorage.getItem('accessToken');
+        const response = await axios.get(url, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         console.log("API call successful, raw data:", response.data);
         // Defensive coding: ensure payments is an array
         setCalendarData({
@@ -39,6 +42,12 @@ export default function TenantHousingAppV3() {
           payments: response.data.payments || [],
         });
       } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          window.location.href = '/auth';
+          return;
+        }
         setError('데이터를 불러오는 데 실패했습니다.');
         console.error("API call failed:", err);
       } finally {
@@ -176,9 +185,9 @@ export default function TenantHousingAppV3() {
 
   const calendarDays = renderCalendar();
   const monthSummary = {
-    total: calendarData.totalAmount || 0,
-    paid: calendarData.paidAmount || 0,
-    upcoming: calendarData.upcomingAmount || 0,
+    total: calendarData.totalAmount || "- ",
+    paid: calendarData.paidAmount || "- ",
+    upcoming: calendarData.upcomingAmount || "- ",
   };
 
   const openAddModal = (type) => {
@@ -451,6 +460,167 @@ export default function TenantHousingAppV3() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========== 입주 전 (Before) ========== */}
+        {activePhase === 'before' && (
+          <div className="space-y-6">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[
+                { id: 'documents', label: '📄 서류 관리' },
+                { id: 'terms', label: '📝 특약 사항' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveSubTab(tab.id)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    activeSubTab === tab.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeSubTab === 'documents' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">입주 전 서류</h3>
+                  <span className="text-sm text-gray-500">
+                    {preMoveDocs.filter(d => d.status === 'uploaded').length}/{preMoveDocs.length} 완료
+                  </span>
+                </div>
+                {preMoveDocs.map(doc => (
+                  <div key={doc.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        doc.status === 'uploaded' ? 'bg-green-50' : 'bg-yellow-50'
+                      }`}>
+                        <span className="text-lg">{doc.status === 'uploaded' ? '✅' : '📋'}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{doc.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {doc.date ? `업로드: ${doc.date}` : '미등록'}
+                          {doc.required && <span className="ml-2 text-red-500">필수</span>}
+                        </p>
+                      </div>
+                    </div>
+                    {getStatusBadge(doc.status)}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeSubTab === 'terms' && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">특약 사항</h3>
+                {specialTerms.map(term => (
+                  <div key={term.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-start gap-3">
+                    <span className={`mt-0.5 text-lg ${term.checked ? 'text-green-500' : 'text-gray-300'}`}>
+                      {term.checked ? '☑️' : '⬜'}
+                    </span>
+                    <div>
+                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 mb-1">
+                        {term.category}
+                      </span>
+                      <p className="text-gray-800">{term.content}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========== 입주 중 (During) ========== */}
+        {activePhase === 'during' && (
+          <div className="space-y-6">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[
+                { id: 'maintenance', label: '🔧 유지보수' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveSubTab(tab.id)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    activeSubTab === tab.id ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeSubTab === 'maintenance' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">유지보수 기록</h3>
+                  <span className="text-sm text-gray-500">{maintenanceRecords.length}건</span>
+                </div>
+                {maintenanceRecords.map(record => (
+                  <div key={record.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">🔧</span>
+                        <h4 className="font-medium text-gray-900">{record.title}</h4>
+                      </div>
+                      {getStatusBadge(record.status)}
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">{record.description}</p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>📅 {record.date}</span>
+                      <span>💰 {record.cost.toLocaleString()}원</span>
+                      <span>{record.paidBy === 'landlord' ? '임대인 부담' : '세입자 부담'}</span>
+                      <span>📷 {record.photos}장</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========== 입주 후 (After) ========== */}
+        {activePhase === 'after' && (
+          <div className="space-y-6">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {[
+                { id: 'checklist', label: '✅ 퇴거 체크리스트' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveSubTab(tab.id)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    activeSubTab === tab.id ? 'bg-orange-50 text-orange-700' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeSubTab === 'checklist' && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">퇴거 체크리스트</h3>
+                {[
+                  { id: 1, label: '보증금 반환 일정 확인', done: false },
+                  { id: 2, label: '시설물 원상복구 확인', done: false },
+                  { id: 3, label: '공과금 정산 완료', done: false },
+                  { id: 4, label: '전입신고 말소', done: false },
+                  { id: 5, label: '퇴거 전 사진 촬영', done: false },
+                  { id: 6, label: '열쇠 반환', done: false },
+                ].map(item => (
+                  <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+                    <span className={`text-lg ${item.done ? 'text-green-500' : 'text-gray-300'}`}>
+                      {item.done ? '☑️' : '⬜'}
+                    </span>
+                    <p className={`${item.done ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{item.label}</p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
