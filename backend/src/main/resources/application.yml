@@ -12,7 +12,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -75,6 +75,12 @@ springdoc:
 #      endpoint: ${LANGFUSE_BASE_URL:https://cloud.langfuse.com}/api/public/otel/v1/traces
 #      headers:
 #        Authorization: Basic ${LANGFUSE_AUTH_STRING:}
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:myDefaultDevSecretKeyThatIsAtLeast256BitsLongForHS256Algorithm}
+  access-token-expiration: 3600000
+  refresh-token-expiration: 604800000
 
 # Sentry Configuration
 sentry:
