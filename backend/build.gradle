@@ -51,6 +51,11 @@ dependencies {
 	// JSON Processing
 	implementation 'com.fasterxml.jackson.core:jackson-databind'
 
+	// JWT
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
 	// .env file support
 	implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
