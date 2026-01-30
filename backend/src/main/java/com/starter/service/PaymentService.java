@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -56,49 +59,10 @@ public class PaymentService {
         return new PaymentCalendarResponse(year, month, totalAmount, paidAmount, upcomingAmount, monthlyPayments);
     }
 
-//    public PaymentCalendarResponse getMonthlyPayments(Long userId, int year, int month) {
-//        LocalDate startDate = LocalDate.of(year, month, 1);
-//        LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
-//
-//        // 1. 해당 월의 비정기 납부 내역 조회
-//        List<Payment> nonRecurringPayments = paymentRepository.findByUserIdAndIsRecurringAndDueDateBetween(userId, false, startDate, endDate);
-//
-//        // 2. 해당 유저의 모든 정기 납부 규칙 조회
-//        List<Payment> recurringPaymentRules = paymentRepository.findByUserIdAndIsRecurring(userId, true);
-//
-//        // 3. 두 리스트를 조합하여 PaymentResponse DTO 리스트 생성
-//        List<PaymentResponse> monthlyPayments = new ArrayList<>();
-//
-//        // 비정기 납부 내역 추가
-//        nonRecurringPayments.forEach(p -> monthlyPayments.add(toPaymentResponse(p)));
-//
-//        // 정기 납부 규칙을 기반으로 해당 월의 납부 내역 추가
-//        recurringPaymentRules.forEach(rule -> {
-//            // 해당 월의 날짜 수가 paymentDay보다 작은 경우 스킵 (예: 2월 30일)
-//            if (endDate.getDayOfMonth() >= rule.getPaymentDay()) {
-//                monthlyPayments.add(toPaymentResponse(rule));
-//            }
-//        });
-//
-//        // 4. 금액 계산
-//        BigDecimal totalAmount = monthlyPayments.stream()
-//                .map(PaymentResponse::getAmount)
-//                .reduce(BigDecimal.ZERO, BigDecimal::add);
-//
-//        BigDecimal paidAmount = monthlyPayments.stream()
-//                .filter(p -> p.getStatus() == PaymentStatus.PAID)
-//                .map(PaymentResponse::getAmount)
-//                .reduce(BigDecimal.ZERO, BigDecimal::add);
-//
-//        BigDecimal upcomingAmount = totalAmount.subtract(paidAmount);
-//
-//        return new PaymentCalendarResponse(year, month, totalAmount, paidAmount, upcomingAmount, monthlyPayments);
-//    }
-
     @Transactional
     public Long createRecurringPayment(Long userId, PaymentCreateRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         Payment payment = Payment.builder()
                 .user(user)
@@ -113,6 +77,12 @@ public class PaymentService {
 
         Payment savedPayment = paymentRepository.save(payment);
         return savedPayment.getId();
+    }
+
+    public Long getUserIdByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"))
+                .getId();
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {

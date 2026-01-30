@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from './api';
 
 // 세입자 주거 기록 앱 V3 - 통합 버전 (비용 관리 + 입주 전/중/후)
 // Tenant Housing Record App with Cost Management (Integrated)
@@ -16,7 +16,7 @@ export default function TenantHousingAppV3() {
   const [calendarMonth, setCalendarMonth] = useState(1); // 1-12
   
   // API Data State
-  const [calendarData, setCalendarData] = useState({ payments: [], totalAmount: 0, paidAmount: 0, upcomingAmount: 0 });
+  const [calendarData, setCalendarData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -24,32 +24,18 @@ export default function TenantHousingAppV3() {
   const [selectedRecord, setSelectedRecord] = useState(null);
 
   useEffect(() => {
-    console.log("useEffect triggered: Fetching calendar data...");
     const fetchCalendarData = async () => {
       setLoading(true);
       setError(null);
-      const url = `http://localhost:8080/api/payments/calendar/${calendarYear}/${calendarMonth}`;
-      console.log("Fetching data from URL:", url);
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await axios.get(url, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        console.log("API call successful, raw data:", response.data);
-        // Defensive coding: ensure payments is an array
+        const response = await api.get(`/api/payments/calendar/${calendarYear}/${calendarMonth}`);
         setCalendarData({
           ...response.data,
           payments: response.data.payments || [],
         });
       } catch (err) {
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          window.location.href = '/auth';
-          return;
-        }
         setError('데이터를 불러오는 데 실패했습니다.');
-        console.error("API call failed:", err);
+        console.error("Failed to fetch calendar data:", err);
       } finally {
         setLoading(false);
       }
@@ -94,12 +80,13 @@ export default function TenantHousingAppV3() {
   const getDaysInMonth = (year, month) => new Date(year, month, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month - 1, 1).getDay();
 
+  const payments = calendarData?.payments || [];
+
   const getPaymentsForDate = (day) => {
-    if (!calendarData || !calendarData.payments) return [];
-    return calendarData.payments.filter(p => p.paymentDay === day);
+    return payments.filter(p => p.paymentDay === day);
   };
-  
-  const upcomingPayments = (calendarData.payments || [])
+
+  const upcomingPayments = payments
     .filter(p => p.status.toUpperCase() === 'UPCOMING')
     .sort((a, b) => a.paymentDay - b.paymentDay);
 
@@ -185,9 +172,9 @@ export default function TenantHousingAppV3() {
 
   const calendarDays = renderCalendar();
   const monthSummary = {
-    total: calendarData.totalAmount || "- ",
-    paid: calendarData.paidAmount || "- ",
-    upcoming: calendarData.upcomingAmount || "- ",
+    total: calendarData?.totalAmount ?? 0,
+    paid: calendarData?.paidAmount ?? 0,
+    upcoming: calendarData?.upcomingAmount ?? 0,
   };
 
   const openAddModal = (type) => {

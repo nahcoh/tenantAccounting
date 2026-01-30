@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8080';
+import api from './api';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -74,7 +72,7 @@ export default function TenantAuth() {
     if (validation.email !== '') return;
     setEmailChecking(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/auth/check-email`, {
+      const res = await api.get(`/api/auth/check-email`, {
         params: { email: formData.email }
       });
       setEmailChecked(res.data.available);
@@ -109,7 +107,7 @@ export default function TenantAuth() {
         ...(isLogin ? {} : { name: formData.name })
       };
 
-      const response = await axios.post(`${API_BASE_URL}${endpoint}`, payload);
+      const response = await api.post(endpoint, payload);
       const { accessToken, refreshToken } = response.data;
 
       localStorage.setItem('accessToken', accessToken);
