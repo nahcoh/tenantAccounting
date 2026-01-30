@@ -31,12 +31,6 @@ public class AuthController {
         return ResponseEntity.ok(token);
     }
 
-    @GetMapping("/check-email")
-    public ResponseEntity<Map<String, Boolean>> checkEmail(@RequestParam String email) {
-        boolean available = authService.isEmailAvailable(email);
-        return ResponseEntity.ok(Map.of("available", available));
-    }
-
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(@RequestBody Map<String, String> request) {
         String refreshToken = request.get("refreshToken");
