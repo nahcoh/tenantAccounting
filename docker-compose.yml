@@ -1,22 +1,21 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: starter-postgres
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: tenantAccounting-mysql
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-starter_db}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-tenantAccounting}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
     networks:
-      - starter-network
+      - tenantAccounting-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,11 +26,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: starter-backend
+    container_name: tenantAccounting-backend
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-starter_db}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-tenantAccounting}
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
       SPRING_PROFILES_ACTIVE: local
     ports:
       - "8080:8080"
@@ -39,9 +38,9 @@ services:
       - ./backend:/app
       - gradle_cache:/root/.gradle
     networks:
-      - starter-network
+      - tenantAccounting-network
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     restart: unless-stopped
 
@@ -61,40 +60,17 @@ services:
       - /app/node_modules
       - /app/.next
     networks:
-      - starter-network
+      - tenantAccounting-network
     depends_on:
       - backend
     restart: unless-stopped
 
-  # pgAdmin (Optional - Database Management UI)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: starter-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "${PGADMIN_PORT:-5050}:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - starter-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
-    profiles:
-      - tools
-
 volumes:
-  postgres_data:
-    driver: local
-  pgadmin_data:
+  mysql_data:
     driver: local
   gradle_cache:
     driver: local
 
 networks:
-  starter-network:
+  tenantAccounting-network:
     driver: bridge
