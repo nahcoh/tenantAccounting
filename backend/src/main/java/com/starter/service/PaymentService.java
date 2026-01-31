@@ -72,6 +72,7 @@ public class PaymentService {
                 .paymentDay(request.getPaymentDay())
                 .isRecurring(true)
                 .autoPay(request.getAutoPay())
+                .dueDate(request.getDueDate())
                 .status(PaymentStatus.UPCOMING)
                 .build();
 
@@ -86,14 +87,19 @@ public class PaymentService {
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {
+        Integer paymentDay = payment.getPaymentDay();
+        if (paymentDay == null && payment.getDueDate() != null) {
+            paymentDay = payment.getDueDate().getDayOfMonth();
+        }
         return new PaymentResponse(
                 payment.getId(),
                 payment.getName(),
                 payment.getCategory(),
                 payment.getAmount(),
-                payment.getPaymentDay(),
+                paymentDay,
                 payment.getStatus(),
                 payment.getAutoPay(),
+                payment.getDueDate(),
                 payment.getPaidDate()
         );
     }

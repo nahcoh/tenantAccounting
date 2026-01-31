@@ -20,5 +20,6 @@ public class PaymentResponse {
     private Integer paymentDay;
     private PaymentStatus status;
     private Boolean autoPay;
+    private LocalDate dueDate;
     private LocalDate paidDate;
 }
