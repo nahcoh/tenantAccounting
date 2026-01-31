@@ -73,6 +73,23 @@ sentry:
 #    minimum-event-level: warn
 #    minimum-breadcrumb-level: info
 
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
 app:
   oauth2:
-    authorized-redirect-uri: http://localhost:5173/oauth/redirect
+    authorized-redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth/redirect}
