@@ -4,6 +4,7 @@ import com.starter.domain.User;
 import com.starter.dto.request.LoginRequest;
 import com.starter.dto.request.SignupRequest;
 import com.starter.dto.response.TokenResponse;
+import com.starter.repository.PaymentRepository;
 import com.starter.repository.UserRepository;
 import com.starter.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
@@ -26,18 +28,21 @@ public class AuthService {
 
     @Transactional
     public TokenResponse signup(SignupRequest signupRequest) {
-        if (userRepository.findByEmail(signupRequest.getEmail()).isPresent()) {
+        if (userRepository.existsByEmail(signupRequest.getEmail())) {
             throw new IllegalArgumentException("User with this email already exists");
         }
 
-        User user = new User();
-        user.setEmail(signupRequest.getEmail());
-        user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
-        user.setName(signupRequest.getName());
+        User user = User.builder()
+                .name(signupRequest.getName())
+                .email(signupRequest.getEmail())
+                .password(passwordEncoder.encode(signupRequest.getPassword()))
+                .role(com.starter.enums.Role.USER)
+                .provider(com.starter.enums.AuthProvider.local.toString())
+                .build();
 
         userRepository.save(user);
 
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getName());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
         return new TokenResponse(accessToken, refreshToken);
     }
@@ -46,13 +51,25 @@ public class AuthService {
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + loginRequest.getEmail()));
 
+        if (user.getProvider() != null && !user.getProvider().equals(com.starter.enums.AuthProvider.local.toString())) {
+            throw new IllegalArgumentException(user.getProvider() + " 계정입니다. 소셜 로그인을 이용해주세요.");
+        }
+
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Invalid password");
         }
 
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getEmail(), user.getName());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
         return new TokenResponse(accessToken, refreshToken);
+    }
+
+    @Transactional
+    public void deleteAccount(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+        paymentRepository.deleteByUserId(user.getId());
+        userRepository.delete(user);
     }
 
     public TokenResponse refresh(String refreshToken) {
@@ -61,10 +78,10 @@ public class AuthService {
         }
 
         String email = jwtTokenProvider.getEmailFromToken(refreshToken);
-        userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        String newAccessToken = jwtTokenProvider.generateAccessToken(email);
+        String newAccessToken = jwtTokenProvider.generateAccessToken(email, user.getName());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(email);
         return new TokenResponse(newAccessToken, newRefreshToken);
     }
