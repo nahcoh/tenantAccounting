@@ -23,6 +23,10 @@ public class Document {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_id")
+    private Contract contract;
+
     @Column(nullable = false, length = 200)
     private String name;
 
