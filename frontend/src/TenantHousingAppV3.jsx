@@ -18,6 +18,10 @@ function getUserNameFromToken() {
   }
 }
 
+const CATEGORY_LABELS = { REPAIR: '수리', FACILITY: '시설', DEPOSIT: '보증금', OTHER: '기타' };
+const DOC_CATEGORY_LABELS = { CONTRACT: '계약', REGISTRATION: '등기', CHECKIN: '전입', OTHER: '기타' };
+const CONTRACT_TYPE_LABELS = { JEONSE: '전세', MONTHLY: '월세', SEMI_JEONSE: '반전세' };
+
 export default function TenantHousingAppV3() {
   const navigate = useNavigate();
   const [activePhase, setActivePhase] = useState('cost'); // cost, before, during, after
@@ -46,23 +50,41 @@ export default function TenantHousingAppV3() {
       console.error('Failed to delete account:', err);
     }
   };
-  
+
   // V3 States (Cost & Calendar)
   const [selectedDate, setSelectedDate] = useState(null);
   const [calendarYear, setCalendarYear] = useState(2026);
   const [calendarMonth, setCalendarMonth] = useState(1); // 1-12
-  
+
   // API Data State
   const [calendarData, setCalendarData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [calendarLoading, setCalendarLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // V1/V2 States
   const [selectedRecord, setSelectedRecord] = useState(null);
 
+  // ========== 입주 전 API States ==========
+  const [contract, setContract] = useState(null);
+  const [contractLoading, setContractLoading] = useState(true);
+  const [documents, setDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [specialTerms, setSpecialTerms] = useState([]);
+  const [termsLoading, setTermsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Form States
+  const [contractForm, setContractForm] = useState({
+    type: 'JEONSE', address: '', jeonseDeposit: '', monthlyRent: '',
+    maintenanceFee: '', startDate: '', endDate: ''
+  });
+  const [docForm, setDocForm] = useState({ name: '', category: 'CONTRACT', isRequired: false });
+  const [termForm, setTermForm] = useState({ category: 'REPAIR', content: '' });
+
+  // ========== API Fetch Functions ==========
   useEffect(() => {
     const fetchCalendarData = async () => {
-      setLoading(true);
+      setCalendarLoading(true);
       setError(null);
       try {
         const response = await api.get(`/api/payments/calendar/${calendarYear}/${calendarMonth}`);
@@ -74,30 +96,158 @@ export default function TenantHousingAppV3() {
         setError('데이터를 불러오는 데 실패했습니다.');
         console.error("Failed to fetch calendar data:", err);
       } finally {
-        setLoading(false);
+        setCalendarLoading(false);
       }
     };
 
     fetchCalendarData();
   }, [calendarYear, calendarMonth]);
 
+  // Fetch contracts on mount
+  useEffect(() => {
+    const fetchContracts = async () => {
+      setContractLoading(true);
+      try {
+        const res = await api.get('/api/contracts');
+        const contracts = res.data;
+        setContract(contracts.length > 0 ? contracts[0] : null);
+      } catch (err) {
+        console.error('Failed to fetch contracts:', err);
+      } finally {
+        setContractLoading(false);
+      }
+    };
+    fetchContracts();
+  }, []);
+
+  // Fetch documents & special terms when contract changes
+  useEffect(() => {
+    if (!contract?.id) return;
+
+    const fetchDocuments = async () => {
+      setDocumentsLoading(true);
+      try {
+        const res = await api.get(`/api/contracts/${contract.id}/documents`);
+        setDocuments(res.data);
+      } catch (err) {
+        console.error('Failed to fetch documents:', err);
+      } finally {
+        setDocumentsLoading(false);
+      }
+    };
+
+    const fetchSpecialTerms = async () => {
+      setTermsLoading(true);
+      try {
+        const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
+        setSpecialTerms(res.data);
+      } catch (err) {
+        console.error('Failed to fetch special terms:', err);
+      } finally {
+        setTermsLoading(false);
+      }
+    };
+
+    fetchDocuments();
+    fetchSpecialTerms();
+  }, [contract?.id]);
+
+  // ========== Mutation Functions ==========
+  const handleCreateContract = async () => {
+    if (!contractForm.address || !contractForm.startDate || !contractForm.endDate) {
+      alert('주소, 시작일, 종료일은 필수입니다.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const payload = {
+        type: contractForm.type,
+        address: contractForm.address,
+        jeonseDeposit: contractForm.jeonseDeposit ? Number(contractForm.jeonseDeposit) : null,
+        monthlyRent: contractForm.monthlyRent ? Number(contractForm.monthlyRent) : null,
+        maintenanceFee: contractForm.maintenanceFee ? Number(contractForm.maintenanceFee) : null,
+        startDate: contractForm.startDate,
+        endDate: contractForm.endDate,
+      };
+      const res = await api.post('/api/contracts', payload);
+      setContract(res.data);
+      setShowAddModal(false);
+      setContractForm({ type: 'JEONSE', address: '', jeonseDeposit: '', monthlyRent: '', maintenanceFee: '', startDate: '', endDate: '' });
+    } catch (err) {
+      alert('계약 등록에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateDocument = async () => {
+    if (!docForm.name) { alert('서류명을 입력해주세요.'); return; }
+    setSubmitting(true);
+    try {
+      await api.post(`/api/contracts/${contract.id}/documents`, docForm);
+      const res = await api.get(`/api/contracts/${contract.id}/documents`);
+      setDocuments(res.data);
+      setShowAddModal(false);
+      setDocForm({ name: '', category: 'CONTRACT', isRequired: false });
+    } catch (err) {
+      alert('서류 등록에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId) => {
+    if (!window.confirm('이 서류를 삭제하시겠습니까?')) return;
+    try {
+      await api.delete(`/api/documents/${docId}`);
+      setDocuments(prev => prev.filter(d => d.id !== docId));
+    } catch (err) {
+      alert('삭제에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleCreateSpecialTerm = async () => {
+    if (!termForm.content) { alert('내용을 입력해주세요.'); return; }
+    setSubmitting(true);
+    try {
+      await api.post(`/api/contracts/${contract.id}/special-terms`, termForm);
+      const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
+      setSpecialTerms(res.data);
+      setShowAddModal(false);
+      setTermForm({ category: 'REPAIR', content: '' });
+    } catch (err) {
+      alert('특약사항 등록에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteSpecialTerm = async (termId) => {
+    if (!window.confirm('이 특약사항을 삭제하시겠습니까?')) return;
+    try {
+      await api.delete(`/api/special-terms/${termId}`);
+      setSpecialTerms(prev => prev.filter(t => t.id !== termId));
+    } catch (err) {
+      alert('삭제에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleToggleTermConfirm = async (termId) => {
+    try {
+      const res = await api.patch(`/api/special-terms/${termId}/confirm`);
+      setSpecialTerms(prev => prev.map(t => t.id === termId ? res.data : t));
+    } catch (err) {
+      alert('상태 변경에 실패했습니다.');
+      console.error(err);
+    }
+  };
 
   // ========== V1 Data (unchanged) ==========
-  const preMoveDocs = [
-    { id: 1, name: '임대차 계약서', status: 'uploaded', date: '2024-01-15', files: 2, required: true },
-    { id: 2, name: '등기부등본', status: 'uploaded', date: '2024-01-14', files: 1, required: true },
-    { id: 3, name: '건축물대장', status: 'pending', date: null, files: 0, required: true },
-    { id: 4, name: '전입신고 확인서', status: 'pending', date: null, files: 0, required: true },
-    { id: 5, name: '확정일자 증명', status: 'pending', date: null, files: 0, required: true },
-  ];
-
-  const specialTerms = [
-    { id: 1, category: '수리', content: '입주 전 보일러 점검 및 필요시 수리는 임대인 부담', checked: true },
-    { id: 2, category: '시설', content: '에어컨 2대 설치 상태 유지, 고장 시 임대인 수리', checked: true },
-    { id: 3, category: '보증금', content: '계약 해지 시 보증금 1개월 내 반환', checked: false },
-    { id: 4, category: '기타', content: '반려동물 사육 가능 (소형견 1마리 한정)', checked: true },
-  ];
-
   const maintenanceRecords = [
     {
       id: 1,
@@ -145,7 +295,7 @@ export default function TenantHousingAppV3() {
       IN_PROGRESS: 'bg-blue-50 text-blue-700',
       RECORDED: 'bg-gray-100 text-gray-600',
     };
-    const labels = { 
+    const labels = {
       PAID: '납부 완료', UPCOMING: '예정', OVERDUE: '연체',
       UPLOADED: '업로드 완료', PENDING: '미등록', COMPLETED: '완료',
       IN_PROGRESS: '진행 중', RECORDED: '기록됨'
@@ -219,11 +369,17 @@ export default function TenantHousingAppV3() {
     setShowAddModal(true);
   };
 
-  if (loading) {
+  const closeModal = () => {
+    setShowAddModal(false);
+    setModalType('');
+  };
+
+  // Only show full-page loading for cost phase
+  if (activePhase === 'cost' && calendarLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  if (error) {
+  if (activePhase === 'cost' && error) {
     return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
   }
 
@@ -429,9 +585,6 @@ export default function TenantHousingAppV3() {
                   <div className="grid grid-cols-7">
                     {calendarDays.map((dayInfo, idx) => {
                       const hasPayments = dayInfo.payments.length > 0;
-                      const hasPaid = dayInfo.payments.some(p => p.status.toUpperCase() === 'PAID');
-                      const hasUpcoming = dayInfo.payments.some(p => p.status.toUpperCase() === 'UPCOMING');
-                      const hasOverdue = dayInfo.payments.some(p => p.status.toUpperCase() === 'OVERDUE');
 
                       return (
                         <div
@@ -515,70 +668,167 @@ export default function TenantHousingAppV3() {
         {/* ========== 입주 전 (Before) ========== */}
         {activePhase === 'before' && (
           <div className="space-y-6">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {[
-                { id: 'documents', label: '📄 서류 관리' },
-                { id: 'terms', label: '📝 특약 사항' },
-              ].map(tab => (
+            {contractLoading ? (
+              <div className="flex items-center justify-center py-12 text-gray-500">불러오는 중...</div>
+            ) : !contract ? (
+              /* 계약 미등록 상태 */
+              <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+                <div className="text-5xl mb-4">📝</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">계약 정보를 먼저 등록해주세요</h3>
+                <p className="text-sm text-gray-500 mb-6">입주 전 서류와 특약사항을 관리하려면 계약 정보가 필요합니다.</p>
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveSubTab(tab.id)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
-                    activeSubTab === tab.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  onClick={() => openAddModal('contract')}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
                 >
-                  {tab.label}
+                  계약 등록하기
                 </button>
-              ))}
-            </div>
-
-            {activeSubTab === 'documents' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">입주 전 서류</h3>
-                  <span className="text-sm text-gray-500">
-                    {preMoveDocs.filter(d => d.status === 'uploaded').length}/{preMoveDocs.length} 완료
-                  </span>
-                </div>
-                {preMoveDocs.map(doc => (
-                  <div key={doc.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        doc.status === 'uploaded' ? 'bg-green-50' : 'bg-yellow-50'
-                      }`}>
-                        <span className="text-lg">{doc.status === 'uploaded' ? '✅' : '📋'}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{doc.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {doc.date ? `업로드: ${doc.date}` : '미등록'}
-                          {doc.required && <span className="ml-2 text-red-500">필수</span>}
-                        </p>
-                      </div>
-                    </div>
-                    {getStatusBadge(doc.status)}
-                  </div>
-                ))}
               </div>
-            )}
-
-            {activeSubTab === 'terms' && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-gray-900">특약 사항</h3>
-                {specialTerms.map(term => (
-                  <div key={term.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-start gap-3">
-                    <span className={`mt-0.5 text-lg ${term.checked ? 'text-green-500' : 'text-gray-300'}`}>
-                      {term.checked ? '☑️' : '⬜'}
+            ) : (
+              <>
+                {/* 계약 요약 카드 */}
+                <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl p-5 text-white">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-blue-100 text-sm">내 계약</p>
+                    <span className="px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs font-medium">
+                      {CONTRACT_TYPE_LABELS[contract.type]}
                     </span>
-                    <div>
-                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 mb-1">
-                        {term.category}
-                      </span>
-                      <p className="text-gray-800">{term.content}</p>
-                    </div>
                   </div>
-                ))}
-              </div>
+                  <p className="font-semibold text-lg mb-1">{contract.address}</p>
+                  <p className="text-blue-100 text-sm">
+                    {contract.startDate} ~ {contract.endDate}
+                  </p>
+                  {contract.jeonseDeposit && (
+                    <p className="text-white text-sm mt-1">보증금: {Number(contract.jeonseDeposit).toLocaleString()}원</p>
+                  )}
+                  {contract.monthlyRent && (
+                    <p className="text-white text-sm">월세: {Number(contract.monthlyRent).toLocaleString()}원</p>
+                  )}
+                </div>
+
+                {/* Sub tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {[
+                    { id: 'documents', label: '📄 서류 관리' },
+                    { id: 'terms', label: '📝 특약 사항' },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveSubTab(tab.id)}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                        activeSubTab === tab.id ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 서류 관리 */}
+                {activeSubTab === 'documents' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">입주 전 서류</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">
+                          {documents.filter(d => d.filePath).length}/{documents.length} 완료
+                        </span>
+                        <button
+                          onClick={() => openAddModal('document')}
+                          className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors text-lg"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    {documentsLoading ? (
+                      <div className="text-center py-8 text-gray-500">불러오는 중...</div>
+                    ) : documents.length === 0 ? (
+                      <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
+                        <p className="text-3xl mb-2">📄</p>
+                        <p>등록된 서류가 없습니다.</p>
+                      </div>
+                    ) : (
+                      documents.map(doc => (
+                        <div key={doc.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                              doc.filePath ? 'bg-green-50' : 'bg-yellow-50'
+                            }`}>
+                              <span className="text-lg">{doc.filePath ? '✅' : '📋'}</span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{doc.name}</p>
+                              <p className="text-xs text-gray-500">
+                                <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 mr-1">
+                                  {DOC_CATEGORY_LABELS[doc.category] || doc.category}
+                                </span>
+                                {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('ko-KR') : '미등록'}
+                                {doc.isRequired && <span className="ml-2 text-red-500 font-medium">필수</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteDocument(doc.id)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* 특약 사항 */}
+                {activeSubTab === 'terms' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-gray-900">특약 사항</h3>
+                      <button
+                        onClick={() => openAddModal('term')}
+                        className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors text-lg"
+                      >
+                        +
+                      </button>
+                    </div>
+                    {termsLoading ? (
+                      <div className="text-center py-8 text-gray-500">불러오는 중...</div>
+                    ) : specialTerms.length === 0 ? (
+                      <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
+                        <p className="text-3xl mb-2">📝</p>
+                        <p>등록된 특약사항이 없습니다.</p>
+                      </div>
+                    ) : (
+                      specialTerms.map(term => (
+                        <div key={term.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-start gap-3">
+                          <button
+                            onClick={() => handleToggleTermConfirm(term.id)}
+                            className="mt-0.5 text-lg flex-shrink-0"
+                          >
+                            {term.isConfirmed ? '☑️' : '⬜'}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 mb-1">
+                              {CATEGORY_LABELS[term.category] || term.category}
+                            </span>
+                            <p className="text-gray-800">{term.content}</p>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteSpecialTerm(term.id)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -673,6 +923,199 @@ export default function TenantHousingAppV3() {
           </div>
         )}
       </main>
+
+      {/* ========== Modal ========== */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" onClick={closeModal}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md p-6 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* 계약 등록 모달 */}
+            {modalType === 'contract' && (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">계약 등록</h3>
+                  <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">계약 유형</label>
+                    <select
+                      value={contractForm.type}
+                      onChange={e => setContractForm(prev => ({ ...prev, type: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="JEONSE">전세</option>
+                      <option value="MONTHLY">월세</option>
+                      <option value="SEMI_JEONSE">반전세</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">주소 *</label>
+                    <input
+                      type="text"
+                      value={contractForm.address}
+                      onChange={e => setContractForm(prev => ({ ...prev, address: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="서울시 강남구..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">보증금 (원)</label>
+                    <input
+                      type="number"
+                      value={contractForm.jeonseDeposit}
+                      onChange={e => setContractForm(prev => ({ ...prev, jeonseDeposit: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                  {(contractForm.type === 'MONTHLY' || contractForm.type === 'SEMI_JEONSE') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">월세 (원)</label>
+                      <input
+                        type="number"
+                        value={contractForm.monthlyRent}
+                        onChange={e => setContractForm(prev => ({ ...prev, monthlyRent: e.target.value }))}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">관리비 (원)</label>
+                    <input
+                      type="number"
+                      value={contractForm.maintenanceFee}
+                      onChange={e => setContractForm(prev => ({ ...prev, maintenanceFee: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">시작일 *</label>
+                      <input
+                        type="date"
+                        value={contractForm.startDate}
+                        onChange={e => setContractForm(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">종료일 *</label>
+                      <input
+                        type="date"
+                        value={contractForm.endDate}
+                        onChange={e => setContractForm(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleCreateContract}
+                    disabled={submitting}
+                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  >
+                    {submitting ? '저장 중...' : '등록하기'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* 서류 추가 모달 */}
+            {modalType === 'document' && (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">서류 추가</h3>
+                  <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">서류명 *</label>
+                    <input
+                      type="text"
+                      value={docForm.name}
+                      onChange={e => setDocForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="예: 임대차 계약서"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
+                    <select
+                      value={docForm.category}
+                      onChange={e => setDocForm(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="CONTRACT">계약</option>
+                      <option value="REGISTRATION">등기</option>
+                      <option value="CHECKIN">전입</option>
+                      <option value="OTHER">기타</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={docForm.isRequired}
+                      onChange={e => setDocForm(prev => ({ ...prev, isRequired: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 rounded"
+                    />
+                    <span className="text-sm text-gray-700">필수 서류</span>
+                  </label>
+                  <button
+                    onClick={handleCreateDocument}
+                    disabled={submitting}
+                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  >
+                    {submitting ? '저장 중...' : '추가하기'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* 특약사항 추가 모달 */}
+            {modalType === 'term' && (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">특약사항 추가</h3>
+                  <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
+                    <select
+                      value={termForm.category}
+                      onChange={e => setTermForm(prev => ({ ...prev, category: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="REPAIR">수리</option>
+                      <option value="FACILITY">시설</option>
+                      <option value="DEPOSIT">보증금</option>
+                      <option value="OTHER">기타</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">내용 *</label>
+                    <textarea
+                      value={termForm.content}
+                      onChange={e => setTermForm(prev => ({ ...prev, content: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows={3}
+                      placeholder="특약사항 내용을 입력하세요"
+                    />
+                  </div>
+                  <button
+                    onClick={handleCreateSpecialTerm}
+                    disabled={submitting}
+                    className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                  >
+                    {submitting ? '저장 중...' : '추가하기'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
