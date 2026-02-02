@@ -34,8 +34,11 @@ public class Document {
     @Column(nullable = false)
     private DocumentCategory category;
 
-    @Column(name = "file_path", nullable = false, length = 500)
+    @Column(name = "file_path", length = 500)
     private String filePath;
+
+    @Column(name = "file_name", length = 300)
+    private String fileName;
 
     @Column(name = "is_required", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private Boolean isRequired;

@@ -15,6 +15,8 @@ public class SpecialTermResponse {
     private Long contractId;
     private SpecialTermCategory category;
     private String content;
+    private String filePath;
+    private String fileName;
     private Boolean isConfirmed;
     private LocalDateTime createdAt;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from './api';
 
@@ -17,6 +17,12 @@ function getUserNameFromToken() {
     return null;
   }
 }
+
+const formatMoney = (value) => {
+  if (!value && value !== 0) return '';
+  return String(value).replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+const parseMoney = (formatted) => formatted.replace(/,/g, '');
 
 const CATEGORY_LABELS = { REPAIR: '수리', FACILITY: '시설', DEPOSIT: '보증금', OTHER: '기타' };
 const DOC_CATEGORY_LABELS = { CONTRACT: '계약', REGISTRATION: '등기', CHECKIN: '전입', OTHER: '기타' };
@@ -72,14 +78,19 @@ export default function TenantHousingAppV3() {
   const [specialTerms, setSpecialTerms] = useState([]);
   const [termsLoading, setTermsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [expandedCards, setExpandedCards] = useState({});
 
   // Form States
   const [contractForm, setContractForm] = useState({
-    type: 'JEONSE', address: '', jeonseDeposit: '', monthlyRent: '',
+    type: 'JEONSE', address: '', addressDetail: '', jeonseDeposit: '', monthlyRent: '',
     maintenanceFee: '', startDate: '', endDate: ''
   });
-  const [docForm, setDocForm] = useState({ name: '', category: 'CONTRACT', isRequired: false });
-  const [termForm, setTermForm] = useState({ category: 'REPAIR', content: '' });
+  const fileInputRefs = useRef({});
+  const [docForm, setDocForm] = useState({ name: '', category: 'CONTRACT', isRequired: false, file: null });
+  const docFileInputRef = useRef(null);
+  const [termForm, setTermForm] = useState({ category: 'REPAIR', content: '', file: null });
+  const termFileInputRef = useRef(null);
+  const termFileInputRefs = useRef({});
 
   // ========== API Fetch Functions ==========
   useEffect(() => {
@@ -160,9 +171,12 @@ export default function TenantHousingAppV3() {
     }
     setSubmitting(true);
     try {
+      const fullAddress = contractForm.addressDetail
+        ? `${contractForm.address} ${contractForm.addressDetail}`
+        : contractForm.address;
       const payload = {
         type: contractForm.type,
-        address: contractForm.address,
+        address: fullAddress,
         jeonseDeposit: contractForm.jeonseDeposit ? Number(contractForm.jeonseDeposit) : null,
         monthlyRent: contractForm.monthlyRent ? Number(contractForm.monthlyRent) : null,
         maintenanceFee: contractForm.maintenanceFee ? Number(contractForm.maintenanceFee) : null,
@@ -172,7 +186,7 @@ export default function TenantHousingAppV3() {
       const res = await api.post('/api/contracts', payload);
       setContract(res.data);
       setShowAddModal(false);
-      setContractForm({ type: 'JEONSE', address: '', jeonseDeposit: '', monthlyRent: '', maintenanceFee: '', startDate: '', endDate: '' });
+      setContractForm({ type: 'JEONSE', address: '', addressDetail: '', jeonseDeposit: '', monthlyRent: '', maintenanceFee: '', startDate: '', endDate: '' });
     } catch (err) {
       alert('계약 등록에 실패했습니다.');
       console.error(err);
@@ -181,15 +195,85 @@ export default function TenantHousingAppV3() {
     }
   };
 
+  const handleUpdateContract = async () => {
+    if (!contractForm.address || !contractForm.startDate || !contractForm.endDate) {
+      alert('주소, 시작일, 종료일은 필수입니다.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const fullAddress = contractForm.addressDetail
+        ? `${contractForm.address} ${contractForm.addressDetail}`
+        : contractForm.address;
+      const payload = {
+        type: contractForm.type,
+        address: fullAddress,
+        jeonseDeposit: contractForm.jeonseDeposit ? Number(contractForm.jeonseDeposit) : null,
+        monthlyRent: contractForm.monthlyRent ? Number(contractForm.monthlyRent) : null,
+        maintenanceFee: contractForm.maintenanceFee ? Number(contractForm.maintenanceFee) : null,
+        startDate: contractForm.startDate,
+        endDate: contractForm.endDate,
+      };
+      const res = await api.put(`/api/contracts/${contract.id}`, payload);
+      setContract(res.data);
+      setShowAddModal(false);
+    } catch (err) {
+      alert('계약 수정에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteContract = async () => {
+    if (!window.confirm('계약을 삭제하시겠습니까? 관련 서류와 특약사항도 모두 삭제됩니다.')) return;
+    try {
+      await api.delete(`/api/contracts/${contract.id}`);
+      setContract(null);
+      setDocuments([]);
+      setSpecialTerms([]);
+      setShowAddModal(false);
+    } catch (err) {
+      alert('계약 삭제에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const openEditContractModal = () => {
+    setContractForm({
+      type: contract.type,
+      address: contract.address,
+      addressDetail: '',
+      jeonseDeposit: contract.jeonseDeposit || '',
+      monthlyRent: contract.monthlyRent || '',
+      maintenanceFee: contract.maintenanceFee || '',
+      startDate: contract.startDate || '',
+      endDate: contract.endDate || '',
+    });
+    setModalType('editContract');
+    setShowAddModal(true);
+  };
+
   const handleCreateDocument = async () => {
     if (!docForm.name) { alert('서류명을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      await api.post(`/api/contracts/${contract.id}/documents`, docForm);
+      const createRes = await api.post(`/api/contracts/${contract.id}/documents`, {
+        name: docForm.name,
+        category: docForm.category,
+        isRequired: docForm.isRequired,
+      });
+      if (docForm.file) {
+        const formData = new FormData();
+        formData.append('file', docForm.file);
+        await api.post(`/api/documents/${createRes.data.id}/upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
       const res = await api.get(`/api/contracts/${contract.id}/documents`);
       setDocuments(res.data);
       setShowAddModal(false);
-      setDocForm({ name: '', category: 'CONTRACT', isRequired: false });
+      setDocForm({ name: '', category: 'CONTRACT', isRequired: false, file: null });
     } catch (err) {
       alert('서류 등록에 실패했습니다.');
       console.error(err);
@@ -213,11 +297,21 @@ export default function TenantHousingAppV3() {
     if (!termForm.content) { alert('내용을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      await api.post(`/api/contracts/${contract.id}/special-terms`, termForm);
+      const createRes = await api.post(`/api/contracts/${contract.id}/special-terms`, {
+        category: termForm.category,
+        content: termForm.content,
+      });
+      if (termForm.file) {
+        const formData = new FormData();
+        formData.append('file', termForm.file);
+        await api.post(`/api/special-terms/${createRes.data.id}/upload`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
       const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
       setSpecialTerms(res.data);
       setShowAddModal(false);
-      setTermForm({ category: 'REPAIR', content: '' });
+      setTermForm({ category: 'REPAIR', content: '', file: null });
     } catch (err) {
       alert('특약사항 등록에 실패했습니다.');
       console.error(err);
@@ -245,6 +339,108 @@ export default function TenantHousingAppV3() {
       alert('상태 변경에 실패했습니다.');
       console.error(err);
     }
+  };
+
+  const handleFileUpload = async (docId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await api.post(`/api/documents/${docId}/upload`, formData, {
+      });
+      const res = await api.get(`/api/contracts/${contract.id}/documents`);
+      setDocuments(res.data);
+    } catch (err) {
+      alert('파일 업로드에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleFileDownload = async (docId, fileName) => {
+    try {
+      const res = await api.get(`/api/documents/${docId}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName || 'download');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('파일 다운로드에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleTermFileUpload = async (termId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await api.post(`/api/special-terms/${termId}/upload`, formData, {
+      });
+      const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
+      setSpecialTerms(res.data);
+    } catch (err) {
+      alert('파일 업로드에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleTermFileDownload = async (termId, fileName) => {
+    try {
+      const res = await api.get(`/api/special-terms/${termId}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName || 'download');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('파일 다운로드에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const [previewUrls, setPreviewUrls] = useState({});
+
+  const toggleCard = async (prefix, id, fileName, filePath) => {
+    const key = `${prefix}-${id}`;
+    const isExpanding = !expandedCards[key];
+    setExpandedCards(prev => ({ ...prev, [key]: isExpanding }));
+
+    if (isExpanding && filePath && !previewUrls[key]) {
+      const isPreviewable = /\.(jpg|jpeg|png|gif|webp|pdf)$/i.test(fileName || '');
+      if (isPreviewable) {
+        try {
+          const endpoint = prefix === 'doc' ? 'documents' : 'special-terms';
+          const res = await api.get(`/api/${endpoint}/${id}/preview`, { responseType: 'blob' });
+          const url = window.URL.createObjectURL(new Blob([res.data]));
+          setPreviewUrls(prev => ({ ...prev, [key]: url }));
+        } catch (err) {
+          console.error('Preview load failed:', err);
+        }
+      }
+    }
+  };
+
+  const isImageFile = (fileName) => {
+    if (!fileName) return false;
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+  };
+
+  const isPdfFile = (fileName) => {
+    if (!fileName) return false;
+    return /\.pdf$/i.test(fileName);
+  };
+
+  const openDaumPostcode = () => {
+    new window.daum.Postcode({
+      oncomplete: (data) => {
+        setContractForm(prev => ({ ...prev, address: data.roadAddress || data.jibunAddress }));
+      },
+    }).open();
   };
 
   // ========== V1 Data (unchanged) ==========
@@ -703,6 +899,12 @@ export default function TenantHousingAppV3() {
                   {contract.monthlyRent && (
                     <p className="text-white text-sm">월세: {Number(contract.monthlyRent).toLocaleString()}원</p>
                   )}
+                  <button
+                    onClick={openEditContractModal}
+                    className="mt-3 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    계약 정보 수정
+                  </button>
                 </div>
 
                 {/* Sub tabs */}
@@ -728,55 +930,143 @@ export default function TenantHousingAppV3() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-900">입주 전 서류</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">
-                          {documents.filter(d => d.filePath).length}/{documents.length} 완료
-                        </span>
-                        <button
-                          onClick={() => openAddModal('document')}
-                          className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors text-lg"
-                        >
-                          +
-                        </button>
-                      </div>
+                      <span className="text-sm text-gray-500">
+                        {documents.filter(d => d.filePath).length}/{documents.length} 완료
+                      </span>
                     </div>
                     {documentsLoading ? (
                       <div className="text-center py-8 text-gray-500">불러오는 중...</div>
                     ) : documents.length === 0 ? (
-                      <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
-                        <p className="text-3xl mb-2">📄</p>
-                        <p>등록된 서류가 없습니다.</p>
-                      </div>
-                    ) : (
-                      documents.map(doc => (
-                        <div key={doc.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                              doc.filePath ? 'bg-green-50' : 'bg-yellow-50'
-                            }`}>
-                              <span className="text-lg">{doc.filePath ? '✅' : '📋'}</span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900">{doc.name}</p>
-                              <p className="text-xs text-gray-500">
-                                <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 mr-1">
-                                  {DOC_CATEGORY_LABELS[doc.category] || doc.category}
-                                </span>
-                                {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('ko-KR') : '미등록'}
-                                {doc.isRequired && <span className="ml-2 text-red-500 font-medium">필수</span>}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteDocument(doc.id)}
-                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                      <>
+                        <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
+                          <p className="text-3xl mb-2">📄</p>
+                          <p>등록된 서류가 없습니다.</p>
                         </div>
-                      ))
+                        <button
+                          onClick={() => openAddModal('document')}
+                          className="w-full p-4 rounded-xl border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+                        >
+                          + 서류 추가하기
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {documents.map(doc => {
+                          const docKey = `doc-${doc.id}`;
+                          const isExpanded = expandedCards[docKey];
+                          return (
+                            <div key={doc.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                              <div
+                                className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                onClick={() => toggleCard('doc', doc.id, doc.fileName, doc.filePath)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                      doc.filePath ? 'bg-green-50' : 'bg-yellow-50'
+                                    }`}>
+                                      <span className="text-lg">{doc.filePath ? '✅' : '📋'}</span>
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-gray-900">{doc.name}</p>
+                                      <p className="text-xs text-gray-500">
+                                        <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 mr-1">
+                                          {DOC_CATEGORY_LABELS[doc.category] || doc.category}
+                                        </span>
+                                        {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('ko-KR') : '미등록'}
+                                        {doc.isRequired && <span className="ml-2 text-red-500 font-medium">필수</span>}
+                                      </p>
+                                      {doc.fileName && (
+                                        <p className="text-xs text-blue-600 mt-0.5">{doc.fileName}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </div>
+                              {isExpanded && (
+                                <div className="px-4 pb-4 border-t border-gray-100">
+                                  {doc.filePath && (
+                                    <div className="mt-3 mb-3">
+                                      {isImageFile(doc.fileName) ? (
+                                        previewUrls[docKey] ? (
+                                          <img
+                                            src={previewUrls[docKey]}
+                                            alt={doc.fileName}
+                                            className="w-full max-h-60 object-contain rounded-lg bg-gray-50 border border-gray-200"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-40 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 text-gray-400 text-sm">
+                                            미리보기 로딩 중...
+                                          </div>
+                                        )
+                                      ) : isPdfFile(doc.fileName) ? (
+                                        previewUrls[docKey] ? (
+                                          <iframe
+                                            src={previewUrls[docKey]}
+                                            title={doc.fileName}
+                                            className="w-full h-60 rounded-lg border border-gray-200"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-40 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 text-gray-400 text-sm">
+                                            PDF 로딩 중...
+                                          </div>
+                                        )
+                                      ) : (
+                                        <div className="w-full h-40 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                                          <span className="text-4xl mb-2">📎</span>
+                                          <p className="text-sm text-gray-700 font-medium">첨부파일</p>
+                                          <p className="text-xs text-gray-500">{doc.fileName}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="file"
+                                      accept=".jpg,.jpeg,.png,.pdf"
+                                      ref={el => { fileInputRefs.current[doc.id] = el; }}
+                                      className="hidden"
+                                      onChange={e => {
+                                        if (e.target.files[0]) handleFileUpload(doc.id, e.target.files[0]);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); fileInputRefs.current[doc.id]?.click(); }}
+                                      className="flex-1 py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                    >
+                                      {doc.filePath ? '파일 변경' : '파일 첨부'}
+                                    </button>
+                                    {doc.filePath && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleFileDownload(doc.id, doc.fileName); }}
+                                        className="flex-1 py-2 px-3 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                                      >
+                                        다운로드
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id); }}
+                                      className="py-2 px-3 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                    >
+                                      삭제
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <button
+                          onClick={() => openAddModal('document')}
+                          className="w-full p-4 rounded-xl border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+                        >
+                          + 서류 추가하기
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -786,45 +1076,145 @@ export default function TenantHousingAppV3() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-gray-900">특약 사항</h3>
-                      <button
-                        onClick={() => openAddModal('term')}
-                        className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors text-lg"
-                      >
-                        +
-                      </button>
+                      <span className="text-sm text-gray-500">
+                        {specialTerms.filter(t => t.isConfirmed).length}/{specialTerms.length} 확인
+                      </span>
                     </div>
                     {termsLoading ? (
                       <div className="text-center py-8 text-gray-500">불러오는 중...</div>
                     ) : specialTerms.length === 0 ? (
-                      <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
-                        <p className="text-3xl mb-2">📝</p>
-                        <p>등록된 특약사항이 없습니다.</p>
-                      </div>
-                    ) : (
-                      specialTerms.map(term => (
-                        <div key={term.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-start gap-3">
-                          <button
-                            onClick={() => handleToggleTermConfirm(term.id)}
-                            className="mt-0.5 text-lg flex-shrink-0"
-                          >
-                            {term.isConfirmed ? '☑️' : '⬜'}
-                          </button>
-                          <div className="flex-1 min-w-0">
-                            <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 mb-1">
-                              {CATEGORY_LABELS[term.category] || term.category}
-                            </span>
-                            <p className="text-gray-800">{term.content}</p>
-                          </div>
-                          <button
-                            onClick={() => handleDeleteSpecialTerm(term.id)}
-                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                      <>
+                        <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-500">
+                          <p className="text-3xl mb-2">📝</p>
+                          <p>등록된 특약사항이 없습니다.</p>
                         </div>
-                      ))
+                        <button
+                          onClick={() => openAddModal('term')}
+                          className="w-full p-4 rounded-xl border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+                        >
+                          + 특약사항 추가하기
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {specialTerms.map(term => {
+                          const termKey = `term-${term.id}`;
+                          const isExpanded = expandedCards[termKey];
+                          return (
+                            <div key={term.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                              <div
+                                className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                onClick={() => toggleCard('term', term.id, term.fileName, term.filePath)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleToggleTermConfirm(term.id); }}
+                                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                        term.isConfirmed ? 'bg-green-50' : 'bg-yellow-50'
+                                      }`}
+                                    >
+                                      <span className="text-lg">{term.isConfirmed ? '✅' : '⬜'}</span>
+                                    </button>
+                                    <div>
+                                      <p className="font-medium text-gray-900">{term.content}</p>
+                                      <p className="text-xs text-gray-500">
+                                        <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 mr-1">
+                                          {CATEGORY_LABELS[term.category] || term.category}
+                                        </span>
+                                        {term.createdAt ? new Date(term.createdAt).toLocaleDateString('ko-KR') : ''}
+                                      </p>
+                                      {term.fileName && (
+                                        <p className="text-xs text-blue-600 mt-0.5">{term.fileName}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </div>
+                              </div>
+                              {isExpanded && (
+                                <div className="px-4 pb-4 border-t border-gray-100">
+                                  {term.filePath && (
+                                    <div className="mt-3 mb-3">
+                                      {isImageFile(term.fileName) ? (
+                                        previewUrls[termKey] ? (
+                                          <img
+                                            src={previewUrls[termKey]}
+                                            alt={term.fileName}
+                                            className="w-full max-h-60 object-contain rounded-lg bg-gray-50 border border-gray-200"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-40 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 text-gray-400 text-sm">
+                                            미리보기 로딩 중...
+                                          </div>
+                                        )
+                                      ) : isPdfFile(term.fileName) ? (
+                                        previewUrls[termKey] ? (
+                                          <iframe
+                                            src={previewUrls[termKey]}
+                                            title={term.fileName}
+                                            className="w-full h-60 rounded-lg border border-gray-200"
+                                          />
+                                        ) : (
+                                          <div className="w-full h-40 flex items-center justify-center bg-gray-50 rounded-lg border border-gray-200 text-gray-400 text-sm">
+                                            PDF 로딩 중...
+                                          </div>
+                                        )
+                                      ) : (
+                                        <div className="w-full h-40 flex flex-col items-center justify-center bg-gray-50 rounded-lg border border-gray-200">
+                                          <span className="text-4xl mb-2">📎</span>
+                                          <p className="text-sm text-gray-700 font-medium">첨부파일</p>
+                                          <p className="text-xs text-gray-500">{term.fileName}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="file"
+                                      accept=".jpg,.jpeg,.png,.pdf"
+                                      ref={el => { termFileInputRefs.current[term.id] = el; }}
+                                      className="hidden"
+                                      onChange={e => {
+                                        if (e.target.files[0]) handleTermFileUpload(term.id, e.target.files[0]);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); termFileInputRefs.current[term.id]?.click(); }}
+                                      className="flex-1 py-2 px-3 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                    >
+                                      {term.filePath ? '파일 변경' : '파일 첨부'}
+                                    </button>
+                                    {term.filePath && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleTermFileDownload(term.id, term.fileName); }}
+                                        className="flex-1 py-2 px-3 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                                      >
+                                        다운로드
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteSpecialTerm(term.id); }}
+                                      className="py-2 px-3 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                    >
+                                      삭제
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <button
+                          onClick={() => openAddModal('term')}
+                          className="w-full p-4 rounded-xl border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors font-medium"
+                        >
+                          + 특약사항 추가하기
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -950,20 +1340,41 @@ export default function TenantHousingAppV3() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">주소 *</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={contractForm.address}
+                        readOnly
+                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl bg-gray-50 cursor-pointer"
+                        placeholder="주소 검색을 눌러주세요"
+                        onClick={openDaumPostcode}
+                      />
+                      <button
+                        type="button"
+                        onClick={openDaumPostcode}
+                        className="px-4 py-2.5 bg-gray-700 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+                      >
+                        주소 검색
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">상세 주소</label>
                     <input
                       type="text"
-                      value={contractForm.address}
-                      onChange={e => setContractForm(prev => ({ ...prev, address: e.target.value }))}
+                      value={contractForm.addressDetail}
+                      onChange={e => setContractForm(prev => ({ ...prev, addressDetail: e.target.value }))}
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="서울시 강남구..."
+                      placeholder="동/호수 입력"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">보증금 (원)</label>
                     <input
-                      type="number"
-                      value={contractForm.jeonseDeposit}
-                      onChange={e => setContractForm(prev => ({ ...prev, jeonseDeposit: e.target.value }))}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatMoney(contractForm.jeonseDeposit)}
+                      onChange={e => setContractForm(prev => ({ ...prev, jeonseDeposit: parseMoney(e.target.value) }))}
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="0"
                     />
@@ -972,9 +1383,10 @@ export default function TenantHousingAppV3() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">월세 (원)</label>
                       <input
-                        type="number"
-                        value={contractForm.monthlyRent}
-                        onChange={e => setContractForm(prev => ({ ...prev, monthlyRent: e.target.value }))}
+                        type="text"
+                        inputMode="numeric"
+                        value={formatMoney(contractForm.monthlyRent)}
+                        onChange={e => setContractForm(prev => ({ ...prev, monthlyRent: parseMoney(e.target.value) }))}
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="0"
                       />
@@ -983,9 +1395,10 @@ export default function TenantHousingAppV3() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">관리비 (원)</label>
                     <input
-                      type="number"
-                      value={contractForm.maintenanceFee}
-                      onChange={e => setContractForm(prev => ({ ...prev, maintenanceFee: e.target.value }))}
+                      type="text"
+                      inputMode="numeric"
+                      value={formatMoney(contractForm.maintenanceFee)}
+                      onChange={e => setContractForm(prev => ({ ...prev, maintenanceFee: parseMoney(e.target.value) }))}
                       className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="0"
                     />
@@ -1017,6 +1430,130 @@ export default function TenantHousingAppV3() {
                   >
                     {submitting ? '저장 중...' : '등록하기'}
                   </button>
+                </div>
+              </>
+            )}
+
+            {/* 계약 수정 모달 */}
+            {modalType === 'editContract' && (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">계약 정보 수정</h3>
+                  <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">계약 유형</label>
+                    <select
+                      value={contractForm.type}
+                      onChange={e => setContractForm(prev => ({ ...prev, type: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="JEONSE">전세</option>
+                      <option value="MONTHLY">월세</option>
+                      <option value="SEMI_JEONSE">반전세</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">주소 *</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={contractForm.address}
+                        readOnly
+                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-xl bg-gray-50 cursor-pointer"
+                        placeholder="주소 검색을 눌러주세요"
+                        onClick={openDaumPostcode}
+                      />
+                      <button
+                        type="button"
+                        onClick={openDaumPostcode}
+                        className="px-4 py-2.5 bg-gray-700 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+                      >
+                        주소 검색
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">상세 주소</label>
+                    <input
+                      type="text"
+                      value={contractForm.addressDetail}
+                      onChange={e => setContractForm(prev => ({ ...prev, addressDetail: e.target.value }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="동/호수 입력"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">보증금 (원)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formatMoney(contractForm.jeonseDeposit)}
+                      onChange={e => setContractForm(prev => ({ ...prev, jeonseDeposit: parseMoney(e.target.value) }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                  {(contractForm.type === 'MONTHLY' || contractForm.type === 'SEMI_JEONSE') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">월세 (원)</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formatMoney(contractForm.monthlyRent)}
+                        onChange={e => setContractForm(prev => ({ ...prev, monthlyRent: parseMoney(e.target.value) }))}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">관리비 (원)</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={formatMoney(contractForm.maintenanceFee)}
+                      onChange={e => setContractForm(prev => ({ ...prev, maintenanceFee: parseMoney(e.target.value) }))}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">시작일 *</label>
+                      <input
+                        type="date"
+                        value={contractForm.startDate}
+                        onChange={e => setContractForm(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">종료일 *</label>
+                      <input
+                        type="date"
+                        value={contractForm.endDate}
+                        onChange={e => setContractForm(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleUpdateContract}
+                      disabled={submitting}
+                      className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+                    >
+                      {submitting ? '저장 중...' : '저장하기'}
+                    </button>
+                    <button
+                      onClick={handleDeleteContract}
+                      className="px-6 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -1061,6 +1598,41 @@ export default function TenantHousingAppV3() {
                     />
                     <span className="text-sm text-gray-700">필수 서류</span>
                   </label>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">첨부파일</label>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      ref={docFileInputRef}
+                      className="hidden"
+                      onChange={e => {
+                        if (e.target.files[0]) setDocForm(prev => ({ ...prev, file: e.target.files[0] }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => docFileInputRef.current?.click()}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-left text-sm hover:bg-gray-50 transition-colors"
+                    >
+                      {docForm.file ? (
+                        <span className="text-gray-900">{docForm.file.name}</span>
+                      ) : (
+                        <span className="text-gray-400">파일을 선택해주세요 (선택사항)</span>
+                      )}
+                    </button>
+                    {docForm.file && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDocForm(prev => ({ ...prev, file: null }));
+                          if (docFileInputRef.current) docFileInputRef.current.value = '';
+                        }}
+                        className="mt-1 text-xs text-red-500 hover:text-red-700"
+                      >
+                        첨부 취소
+                      </button>
+                    )}
+                  </div>
                   <button
                     onClick={handleCreateDocument}
                     disabled={submitting}
@@ -1102,6 +1674,41 @@ export default function TenantHousingAppV3() {
                       rows={3}
                       placeholder="특약사항 내용을 입력하세요"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">첨부파일</label>
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      ref={termFileInputRef}
+                      className="hidden"
+                      onChange={e => {
+                        if (e.target.files[0]) setTermForm(prev => ({ ...prev, file: e.target.files[0] }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => termFileInputRef.current?.click()}
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-left text-sm hover:bg-gray-50 transition-colors"
+                    >
+                      {termForm.file ? (
+                        <span className="text-gray-900">{termForm.file.name}</span>
+                      ) : (
+                        <span className="text-gray-400">파일을 선택해주세요 (선택사항)</span>
+                      )}
+                    </button>
+                    {termForm.file && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTermForm(prev => ({ ...prev, file: null }));
+                          if (termFileInputRef.current) termFileInputRef.current.value = '';
+                        }}
+                        className="mt-1 text-xs text-red-500 hover:text-red-700"
+                      >
+                        첨부 취소
+                      </button>
+                    )}
                   </div>
                   <button
                     onClick={handleCreateSpecialTerm}
