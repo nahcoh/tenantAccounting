@@ -30,6 +30,12 @@ public class SpecialTerm {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "file_path", length = 500)
+    private String filePath;
+
+    @Column(name = "file_name", length = 300)
+    private String fileName;
+
     @Column(name = "is_confirmed", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private Boolean isConfirmed = false;
 
