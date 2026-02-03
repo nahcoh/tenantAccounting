@@ -15,6 +15,7 @@ public class DocumentResponse {
     private String name;
     private DocumentCategory category;
     private String filePath;
+    private String fileName;
     private Boolean isRequired;
     private LocalDateTime uploadedAt;
 }
