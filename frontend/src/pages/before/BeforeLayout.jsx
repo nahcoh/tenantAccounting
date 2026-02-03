@@ -1,11 +1,27 @@
 import React from 'react';
 import { NavLink, Outlet, useOutletContext } from 'react-router-dom';
 import { CONTRACT_TYPE_LABELS } from '../../lib/constants';
+import KakaoMap from '../../components/KakaoMap';
 
 const TABS = [
   { id: 'documents', label: '📄 서류 관리' },
   { id: 'terms', label: '📝 특약 사항' },
 ];
+
+const CONTRACT_TYPE_STYLES = {
+  JEONSE: {
+    gradient: 'from-blue-500 to-cyan-500',
+    subtext: 'text-blue-100',
+  },
+  MONTHLY: {
+    gradient: 'from-orange-500 to-amber-500',
+    subtext: 'text-orange-100',
+  },
+  SEMI_JEONSE: {
+    gradient: 'from-purple-500 to-pink-500',
+    subtext: 'text-purple-100',
+  },
+};
 
 export default function BeforeLayout() {
   const ctx = useOutletContext();
@@ -34,15 +50,15 @@ export default function BeforeLayout() {
   return (
     <div className="space-y-6">
       {/* 계약 요약 카드 */}
-      <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl p-5 text-white">
+      <div className={`bg-gradient-to-r ${CONTRACT_TYPE_STYLES[contract.type]?.gradient || 'from-blue-500 to-cyan-500'} rounded-2xl p-5 text-white`}>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-blue-100 text-sm">내 계약</p>
+          <p className={`${CONTRACT_TYPE_STYLES[contract.type]?.subtext || 'text-blue-100'} text-sm`}>내 계약</p>
           <span className="px-2 py-0.5 bg-white bg-opacity-20 rounded-full text-xs font-medium">
             {CONTRACT_TYPE_LABELS[contract.type]}
           </span>
         </div>
         <p className="font-semibold text-lg mb-1">{contract.address}</p>
-        <p className="text-blue-100 text-sm">
+        <p className={`${CONTRACT_TYPE_STYLES[contract.type]?.subtext || 'text-blue-100'} text-sm`}>
           {contract.startDate} ~ {contract.endDate}
         </p>
         {contract.jeonseDeposit && (
@@ -57,6 +73,11 @@ export default function BeforeLayout() {
         >
           계약 정보 수정
         </button>
+      </div>
+
+      {/* 지도 */}
+      <div className="rounded-2xl overflow-hidden border border-gray-200" style={{ height: '200px' }}>
+        <KakaoMap address={contract.address} />
       </div>
 
       {/* Sub tabs */}
