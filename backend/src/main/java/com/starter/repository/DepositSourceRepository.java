@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface DepositSourceRepository extends JpaRepository<DepositSource, Long> {
     List<DepositSource> findByContractId(Long contractId);
+    void deleteByContractId(Long contractId);
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../api';
 
 export default function useContract() {
@@ -8,6 +8,9 @@ export default function useContract() {
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [specialTerms, setSpecialTerms] = useState([]);
   const [termsLoading, setTermsLoading] = useState(false);
+  const [checklists, setChecklists] = useState([]);
+  const [checklistsLoading, setChecklistsLoading] = useState(false);
+  const [selectedPhase, setSelectedPhase] = useState('ALL');
   const [submitting, setSubmitting] = useState(false);
   const [expandedCards, setExpandedCards] = useState({});
   const [previewUrls, setPreviewUrls] = useState({});
@@ -17,11 +20,12 @@ export default function useContract() {
     maintenanceFee: '', startDate: '', endDate: ''
   });
   const fileInputRefs = useRef({});
-  const [docForm, setDocForm] = useState({ name: '', category: 'CONTRACT', isRequired: false, file: null });
+  const [docForm, setDocForm] = useState({ name: '', category: 'CONTRACT', phase: null, isRequired: false, file: null });
   const docFileInputRef = useRef(null);
-  const [termForm, setTermForm] = useState({ category: 'REPAIR', content: '', file: null });
+  const [termForm, setTermForm] = useState({ category: 'REPAIR', phase: null, content: '', file: null });
   const termFileInputRef = useRef(null);
   const termFileInputRefs = useRef({});
+  const [checklistForm, setChecklistForm] = useState({ phase: 'PRE_CONTRACT', category: 'VERIFICATION', title: '', description: '', isRequired: false });
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -43,7 +47,7 @@ export default function useContract() {
     fetchContracts();
   }, []);
 
-  // Fetch documents & special terms when contract changes
+  // Fetch documents, special terms & checklists when contract changes
   useEffect(() => {
     if (!contract?.id) return;
 
@@ -71,9 +75,42 @@ export default function useContract() {
       }
     };
 
+    const fetchChecklists = async () => {
+      setChecklistsLoading(true);
+      try {
+        let res = await api.get(`/api/contracts/${contract.id}/checklists`);
+        // 체크리스트가 비어있으면 기본 체크리스트 초기화
+        if (res.data.length === 0) {
+          res = await api.post(`/api/contracts/${contract.id}/checklists/initialize`);
+        }
+        setChecklists(res.data);
+      } catch (err) {
+        console.error('Failed to fetch checklists:', err);
+      } finally {
+        setChecklistsLoading(false);
+      }
+    };
+
     fetchDocuments();
     fetchSpecialTerms();
+    fetchChecklists();
   }, [contract?.id]);
+
+  // 단계별 필터링된 데이터
+  const filteredDocuments = useMemo(() => {
+    if (selectedPhase === 'ALL') return documents;
+    return documents.filter(doc => doc.phase === selectedPhase);
+  }, [documents, selectedPhase]);
+
+  const filteredTerms = useMemo(() => {
+    if (selectedPhase === 'ALL') return specialTerms;
+    return specialTerms.filter(term => term.phase === selectedPhase);
+  }, [specialTerms, selectedPhase]);
+
+  const filteredChecklists = useMemo(() => {
+    if (selectedPhase === 'ALL') return checklists;
+    return checklists.filter(item => item.phase === selectedPhase);
+  }, [checklists, selectedPhase]);
 
   const handleCreateContract = async () => {
     if (!contractForm.address || !contractForm.startDate || !contractForm.endDate) {
@@ -172,6 +209,7 @@ export default function useContract() {
       const createRes = await api.post(`/api/contracts/${contract.id}/documents`, {
         name: docForm.name,
         category: docForm.category,
+        phase: docForm.phase || null,
         isRequired: docForm.isRequired,
       });
       if (docForm.file) {
@@ -184,7 +222,7 @@ export default function useContract() {
       const res = await api.get(`/api/contracts/${contract.id}/documents`);
       setDocuments(res.data);
       setShowAddModal(false);
-      setDocForm({ name: '', category: 'CONTRACT', isRequired: false, file: null });
+      setDocForm({ name: '', category: 'CONTRACT', phase: null, isRequired: false, file: null });
     } catch (err) {
       alert('서류 등록에 실패했습니다.');
       console.error(err);
@@ -210,6 +248,7 @@ export default function useContract() {
     try {
       const createRes = await api.post(`/api/contracts/${contract.id}/special-terms`, {
         category: termForm.category,
+        phase: termForm.phase || null,
         content: termForm.content,
       });
       if (termForm.file) {
@@ -222,12 +261,99 @@ export default function useContract() {
       const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
       setSpecialTerms(res.data);
       setShowAddModal(false);
-      setTermForm({ category: 'REPAIR', content: '', file: null });
+      setTermForm({ category: 'REPAIR', phase: null, content: '', file: null });
     } catch (err) {
       alert('특약사항 등록에 실패했습니다.');
       console.error(err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCreateChecklist = async () => {
+    if (!checklistForm.title) { alert('항목명을 입력해주세요.'); return; }
+    setSubmitting(true);
+    try {
+      await api.post(`/api/contracts/${contract.id}/checklists`, {
+        phase: checklistForm.phase,
+        category: checklistForm.category,
+        title: checklistForm.title,
+        description: checklistForm.description,
+        isRequired: checklistForm.isRequired,
+      });
+      const res = await api.get(`/api/contracts/${contract.id}/checklists`);
+      setChecklists(res.data);
+      setShowAddModal(false);
+      setChecklistForm({ phase: 'PRE_CONTRACT', category: 'VERIFICATION', title: '', description: '', isRequired: false });
+    } catch (err) {
+      alert('체크리스트 항목 등록에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleChecklistComplete = async (checklistId) => {
+    try {
+      const res = await api.patch(`/api/checklists/${checklistId}/complete`);
+      setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+    } catch (err) {
+      alert('상태 변경에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleDeleteChecklist = async (checklistId) => {
+    if (!window.confirm('이 체크리스트 항목을 삭제하시겠습니까?')) return;
+    try {
+      await api.delete(`/api/checklists/${checklistId}`);
+      setChecklists(prev => prev.filter(item => item.id !== checklistId));
+    } catch (err) {
+      alert('삭제에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleChecklistFileUpload = async (checklistId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await api.post(`/api/checklists/${checklistId}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+    } catch (err) {
+      const message = err.response?.data?.message || '파일 업로드에 실패했습니다. (PDF, JPG, PNG만 가능)';
+      alert(message);
+      console.error(err);
+    }
+  };
+
+  const handleChecklistFileDownload = async (checklistId, fileName) => {
+    try {
+      const res = await api.get(`/api/checklists/${checklistId}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName || 'download');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('파일 다운로드에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleChecklistFileDelete = async (checklistId) => {
+    if (!window.confirm('첨부 파일을 삭제하시겠습니까?')) return;
+    try {
+      const res = await api.delete(`/api/checklists/${checklistId}/file`);
+      setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+    } catch (err) {
+      alert('파일 삭제에 실패했습니다.');
+      console.error(err);
     }
   };
 
@@ -353,16 +479,22 @@ export default function useContract() {
   return {
     contract, contractLoading, documents, documentsLoading,
     specialTerms, termsLoading, submitting,
+    checklists, checklistsLoading,
+    filteredDocuments, filteredTerms, filteredChecklists,
+    selectedPhase, setSelectedPhase,
     expandedCards, previewUrls,
     contractForm, setContractForm, fileInputRefs,
     docForm, setDocForm, docFileInputRef,
     termForm, setTermForm, termFileInputRef, termFileInputRefs,
+    checklistForm, setChecklistForm,
     showAddModal, modalType,
     handleCreateContract, handleUpdateContract, handleDeleteContract,
     openEditContractModal,
     handleCreateDocument, handleDeleteDocument,
     handleCreateSpecialTerm, handleDeleteSpecialTerm,
     handleToggleTermConfirm,
+    handleCreateChecklist, handleToggleChecklistComplete, handleDeleteChecklist,
+    handleChecklistFileUpload, handleChecklistFileDownload, handleChecklistFileDelete,
     handleFileUpload, handleFileDownload,
     handleTermFileUpload, handleTermFileDownload,
     toggleCard, openAddModal, closeModal, openDaumPostcode,
