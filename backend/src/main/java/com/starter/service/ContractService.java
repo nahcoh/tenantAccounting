@@ -9,7 +9,11 @@ import com.starter.dto.response.DepositSourceResponse;
 import com.starter.repository.ContractRepository;
 import com.starter.repository.DepositSourceRepository;
 import com.starter.repository.UserRepository;
+import com.starter.repository.ChecklistRepository;
+import com.starter.repository.DocumentRepository;
+import com.starter.repository.SpecialTermRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +29,11 @@ public class ContractService {
     private final ContractRepository contractRepository;
     private final DepositSourceRepository depositSourceRepository;
     private final UserRepository userRepository;
+    private final ChecklistRepository checklistRepository;
+    private final DocumentRepository documentRepository;
+    private final SpecialTermRepository specialTermRepository;
+    @Lazy
+    private final ChecklistService checklistService;
 
     @Transactional
     public ContractResponse createContract(Long userId, ContractCreateRequest request) {
@@ -54,6 +63,9 @@ public class ContractService {
                 depositSourceRepository.save(ds);
             });
         }
+
+        // 기본 체크리스트 초기화
+        checklistService.initializeDefaultChecklists(savedContract);
 
         return toResponse(savedContract);
     }
@@ -100,6 +112,13 @@ public class ContractService {
         if (!contract.getUser().getId().equals(userId)) {
             throw new IllegalArgumentException("Access denied");
         }
+
+        // 연관 데이터 먼저 삭제
+        checklistRepository.deleteByContractId(contractId);
+        documentRepository.deleteByContractId(contractId);
+        specialTermRepository.deleteByContractId(contractId);
+        depositSourceRepository.deleteByContractId(contractId);
+
         contractRepository.delete(contract);
     }
 

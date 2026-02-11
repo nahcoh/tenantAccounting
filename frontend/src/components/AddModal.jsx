@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatMoney, parseMoney } from '../lib/utils';
+import { CONTRACT_PHASES } from '../lib/constants';
 
 export default function AddModal({
   showAddModal, modalType, closeModal, submitting,
@@ -7,8 +8,11 @@ export default function AddModal({
   handleCreateContract, handleUpdateContract, handleDeleteContract,
   docForm, setDocForm, docFileInputRef, handleCreateDocument,
   termForm, setTermForm, termFileInputRef, handleCreateSpecialTerm,
+  checklistForm, setChecklistForm, handleCreateChecklist,
 }) {
   if (!showAddModal) return null;
+
+  const phaseOptions = CONTRACT_PHASES.filter(p => p.id !== 'ALL');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" onClick={closeModal}>
@@ -82,6 +86,19 @@ export default function AddModal({
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="예: 임대차 계약서"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">계약 단계</label>
+                <select
+                  value={docForm.phase || ''}
+                  onChange={e => setDocForm(prev => ({ ...prev, phase: e.target.value || null }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">선택 안함</option>
+                  {phaseOptions.map(p => (
+                    <option key={p.id} value={p.id}>{p.icon} {p.label}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
@@ -160,6 +177,19 @@ export default function AddModal({
             </div>
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">계약 단계</label>
+                <select
+                  value={termForm.phase || ''}
+                  onChange={e => setTermForm(prev => ({ ...prev, phase: e.target.value || null }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">선택 안함</option>
+                  {phaseOptions.map(p => (
+                    <option key={p.id} value={p.id}>{p.icon} {p.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
                 <select
                   value={termForm.category}
@@ -219,6 +249,79 @@ export default function AddModal({
               </div>
               <button
                 onClick={handleCreateSpecialTerm}
+                disabled={submitting}
+                className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+              >
+                {submitting ? '저장 중...' : '추가하기'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* 체크리스트 추가 모달 */}
+        {modalType === 'checklist' && (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">체크리스트 항목 추가</h3>
+              <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">계약 단계 *</label>
+                <select
+                  value={checklistForm.phase}
+                  onChange={e => setChecklistForm(prev => ({ ...prev, phase: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {phaseOptions.map(p => (
+                    <option key={p.id} value={p.id}>{p.icon} {p.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
+                <select
+                  value={checklistForm.category}
+                  onChange={e => setChecklistForm(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="VERIFICATION">확인/검증</option>
+                  <option value="SAFETY">안전</option>
+                  <option value="FINANCE">재정</option>
+                  <option value="MOVE_IN">입주</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">항목명 *</label>
+                <input
+                  type="text"
+                  value={checklistForm.title}
+                  onChange={e => setChecklistForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="예: 등기부등본 확인"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                <textarea
+                  value={checklistForm.description}
+                  onChange={e => setChecklistForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={2}
+                  placeholder="항목에 대한 상세 설명 (선택사항)"
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={checklistForm.isRequired}
+                  onChange={e => setChecklistForm(prev => ({ ...prev, isRequired: e.target.checked }))}
+                  className="w-4 h-4 text-blue-600 rounded"
+                />
+                <span className="text-sm text-gray-700">필수 항목</span>
+              </label>
+              <button
+                onClick={handleCreateChecklist}
                 disabled={submitting}
                 className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
               >
