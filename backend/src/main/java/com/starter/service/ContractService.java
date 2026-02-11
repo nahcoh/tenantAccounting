@@ -12,6 +12,7 @@ import com.starter.repository.UserRepository;
 import com.starter.repository.ChecklistRepository;
 import com.starter.repository.DocumentRepository;
 import com.starter.repository.SpecialTermRepository;
+import com.starter.repository.MaintenanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class ContractService {
     private final ChecklistRepository checklistRepository;
     private final DocumentRepository documentRepository;
     private final SpecialTermRepository specialTermRepository;
+    private final MaintenanceRepository maintenanceRepository;
     @Lazy
     private final ChecklistService checklistService;
 
@@ -117,6 +119,7 @@ public class ContractService {
         checklistRepository.deleteByContractId(contractId);
         documentRepository.deleteByContractId(contractId);
         specialTermRepository.deleteByContractId(contractId);
+        maintenanceRepository.deleteByContractId(contractId);
         depositSourceRepository.deleteByContractId(contractId);
 
         contractRepository.delete(contract);
