@@ -9,6 +9,7 @@ export default function AddModal({
   docForm, setDocForm, docFileInputRef, handleCreateDocument,
   termForm, setTermForm, termFileInputRef, handleCreateSpecialTerm,
   checklistForm, setChecklistForm, handleCreateChecklist,
+  maintenanceForm, setMaintenanceForm, handleCreateMaintenance,
 }) {
   if (!showAddModal) return null;
 
@@ -326,6 +327,82 @@ export default function AddModal({
                 className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400"
               >
                 {submitting ? '저장 중...' : '추가하기'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* 유지보수 추가 모달 */}
+        {modalType === 'maintenance' && (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">유지보수 요청</h3>
+              <button onClick={closeModal} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">제목 *</label>
+                <input
+                  type="text"
+                  value={maintenanceForm.title}
+                  onChange={e => setMaintenanceForm(prev => ({ ...prev, title: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="예: 보일러 고장 수리"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
+                <select
+                  value={maintenanceForm.category}
+                  onChange={e => setMaintenanceForm(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="REPAIR">수리</option>
+                  <option value="PLUMBING">배관/수도</option>
+                  <option value="ELECTRIC">전기</option>
+                  <option value="HEATING">난방/보일러</option>
+                  <option value="APPLIANCE">가전제품</option>
+                  <option value="OTHER">기타</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">상세 내용</label>
+                <textarea
+                  value={maintenanceForm.description}
+                  onChange={e => setMaintenanceForm(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={3}
+                  placeholder="수리가 필요한 상황을 상세히 설명해주세요"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">예상 비용 (원)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatMoney(maintenanceForm.cost)}
+                  onChange={e => setMaintenanceForm(prev => ({ ...prev, cost: parseMoney(e.target.value) }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">비용 부담</label>
+                <select
+                  value={maintenanceForm.paidBy}
+                  onChange={e => setMaintenanceForm(prev => ({ ...prev, paidBy: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="LANDLORD">임대인 부담</option>
+                  <option value="TENANT">세입자 부담</option>
+                </select>
+              </div>
+              <button
+                onClick={handleCreateMaintenance}
+                disabled={submitting}
+                className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors disabled:bg-gray-400"
+              >
+                {submitting ? '저장 중...' : '요청하기'}
               </button>
             </div>
           </>

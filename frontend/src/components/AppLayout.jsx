@@ -138,6 +138,9 @@ export default function AppLayout() {
         checklistForm={contractData.checklistForm}
         setChecklistForm={contractData.setChecklistForm}
         handleCreateChecklist={contractData.handleCreateChecklist}
+        maintenanceForm={contractData.maintenanceForm}
+        setMaintenanceForm={contractData.setMaintenanceForm}
+        handleCreateMaintenance={contractData.handleCreateMaintenance}
       />
     </div>
   );
