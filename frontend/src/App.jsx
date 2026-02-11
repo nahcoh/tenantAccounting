@@ -13,6 +13,7 @@ import LoanPage from './pages/cost/LoanPage';
 import BeforeLayout from './pages/before/BeforeLayout';
 import DocumentsPage from './pages/before/DocumentsPage';
 import TermsPage from './pages/before/TermsPage';
+import BeforeChecklistPage from './pages/before/ChecklistPage';
 import DuringLayout from './pages/during/DuringLayout';
 import MaintenancePage from './pages/during/MaintenancePage';
 import AfterLayout from './pages/after/AfterLayout';
@@ -42,6 +43,7 @@ function App() {
               <Route index element={<Navigate to="documents" replace />} />
               <Route path="documents" element={<DocumentsPage />} />
               <Route path="terms" element={<TermsPage />} />
+              <Route path="checklist" element={<BeforeChecklistPage />} />
             </Route>
 
             <Route path="during" element={<DuringLayout />}>

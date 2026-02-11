@@ -135,6 +135,9 @@ export default function AppLayout() {
         setTermForm={contractData.setTermForm}
         termFileInputRef={contractData.termFileInputRef}
         handleCreateSpecialTerm={contractData.handleCreateSpecialTerm}
+        checklistForm={contractData.checklistForm}
+        setChecklistForm={contractData.setChecklistForm}
+        handleCreateChecklist={contractData.handleCreateChecklist}
       />
     </div>
   );
