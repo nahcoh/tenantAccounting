@@ -10,6 +10,8 @@ export default function useContract() {
   const [termsLoading, setTermsLoading] = useState(false);
   const [checklists, setChecklists] = useState([]);
   const [checklistsLoading, setChecklistsLoading] = useState(false);
+  const [maintenances, setMaintenances] = useState([]);
+  const [maintenancesLoading, setMaintenancesLoading] = useState(false);
   const [selectedPhase, setSelectedPhase] = useState('ALL');
   const [submitting, setSubmitting] = useState(false);
   const [expandedCards, setExpandedCards] = useState({});
@@ -26,6 +28,7 @@ export default function useContract() {
   const termFileInputRef = useRef(null);
   const termFileInputRefs = useRef({});
   const [checklistForm, setChecklistForm] = useState({ phase: 'PRE_CONTRACT', category: 'VERIFICATION', title: '', description: '', isRequired: false });
+  const [maintenanceForm, setMaintenanceForm] = useState({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -91,9 +94,22 @@ export default function useContract() {
       }
     };
 
+    const fetchMaintenances = async () => {
+      setMaintenancesLoading(true);
+      try {
+        const res = await api.get(`/api/contracts/${contract.id}/maintenances`);
+        setMaintenances(res.data);
+      } catch (err) {
+        console.error('Failed to fetch maintenances:', err);
+      } finally {
+        setMaintenancesLoading(false);
+      }
+    };
+
     fetchDocuments();
     fetchSpecialTerms();
     fetchChecklists();
+    fetchMaintenances();
   }, [contract?.id]);
 
   // 단계별 필터링된 데이터
@@ -458,6 +474,94 @@ export default function useContract() {
     }
   };
 
+  // Maintenance handlers
+  const handleCreateMaintenance = async () => {
+    if (!maintenanceForm.title) { alert('제목을 입력해주세요.'); return; }
+    setSubmitting(true);
+    try {
+      await api.post(`/api/contracts/${contract.id}/maintenances`, {
+        title: maintenanceForm.title,
+        category: maintenanceForm.category,
+        description: maintenanceForm.description,
+        cost: maintenanceForm.cost ? Number(maintenanceForm.cost) : null,
+        paidBy: maintenanceForm.paidBy,
+      });
+      const res = await api.get(`/api/contracts/${contract.id}/maintenances`);
+      setMaintenances(res.data);
+      setShowAddModal(false);
+      setMaintenanceForm({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
+    } catch (err) {
+      alert('유지보수 등록에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateMaintenanceStatus = async (maintenanceId, status) => {
+    try {
+      const res = await api.patch(`/api/maintenances/${maintenanceId}/status?status=${status}`);
+      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+    } catch (err) {
+      alert('상태 변경에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleDeleteMaintenance = async (maintenanceId) => {
+    if (!window.confirm('이 유지보수 기록을 삭제하시겠습니까?')) return;
+    try {
+      await api.delete(`/api/maintenances/${maintenanceId}`);
+      setMaintenances(prev => prev.filter(item => item.id !== maintenanceId));
+    } catch (err) {
+      alert('삭제에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleMaintenanceFileUpload = async (maintenanceId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await api.post(`/api/maintenances/${maintenanceId}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+    } catch (err) {
+      const message = err.response?.data?.message || '파일 업로드에 실패했습니다. (PDF, JPG, PNG만 가능)';
+      alert(message);
+      console.error(err);
+    }
+  };
+
+  const handleMaintenanceFileDownload = async (maintenanceId, fileName) => {
+    try {
+      const res = await api.get(`/api/maintenances/${maintenanceId}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName || 'download');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('파일 다운로드에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
+  const handleMaintenanceFileDelete = async (maintenanceId) => {
+    if (!window.confirm('첨부 파일을 삭제하시겠습니까?')) return;
+    try {
+      const res = await api.delete(`/api/maintenances/${maintenanceId}/file`);
+      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+    } catch (err) {
+      alert('파일 삭제에 실패했습니다.');
+      console.error(err);
+    }
+  };
+
   const openAddModal = (type) => {
     setModalType(type);
     setShowAddModal(true);
@@ -480,6 +584,7 @@ export default function useContract() {
     contract, contractLoading, documents, documentsLoading,
     specialTerms, termsLoading, submitting,
     checklists, checklistsLoading,
+    maintenances, maintenancesLoading,
     filteredDocuments, filteredTerms, filteredChecklists,
     selectedPhase, setSelectedPhase,
     expandedCards, previewUrls,
@@ -487,6 +592,7 @@ export default function useContract() {
     docForm, setDocForm, docFileInputRef,
     termForm, setTermForm, termFileInputRef, termFileInputRefs,
     checklistForm, setChecklistForm,
+    maintenanceForm, setMaintenanceForm,
     showAddModal, modalType,
     handleCreateContract, handleUpdateContract, handleDeleteContract,
     openEditContractModal,
@@ -495,6 +601,8 @@ export default function useContract() {
     handleToggleTermConfirm,
     handleCreateChecklist, handleToggleChecklistComplete, handleDeleteChecklist,
     handleChecklistFileUpload, handleChecklistFileDownload, handleChecklistFileDelete,
+    handleCreateMaintenance, handleUpdateMaintenanceStatus, handleDeleteMaintenance,
+    handleMaintenanceFileUpload, handleMaintenanceFileDownload, handleMaintenanceFileDelete,
     handleFileUpload, handleFileDownload,
     handleTermFileUpload, handleTermFileDownload,
     toggleCard, openAddModal, closeModal, openDaumPostcode,

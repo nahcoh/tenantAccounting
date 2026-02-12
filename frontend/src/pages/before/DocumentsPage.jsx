@@ -1,14 +1,16 @@
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { DOC_CATEGORY_LABELS } from '../../lib/constants';
+import { DOC_CATEGORY_LABELS, CONTRACT_PHASE_LABELS } from '../../lib/constants';
 import { isImageFile, isPdfFile } from '../../lib/utils';
 
 export default function DocumentsPage() {
   const {
-    documents, documentsLoading, expandedCards, previewUrls,
+    filteredDocuments, documentsLoading, expandedCards, previewUrls,
     fileInputRefs, toggleCard, handleFileUpload, handleFileDownload,
     handleDeleteDocument, openAddModal,
   } = useOutletContext();
+
+  const documents = filteredDocuments;
 
   return (
     <div className="space-y-3">
@@ -55,6 +57,11 @@ export default function DocumentsPage() {
                           <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 mr-1">
                             {DOC_CATEGORY_LABELS[doc.category] || doc.category}
                           </span>
+                          {doc.phase && (
+                            <span className="px-1.5 py-0.5 bg-blue-50 rounded text-blue-600 mr-1">
+                              {CONTRACT_PHASE_LABELS[doc.phase]}
+                            </span>
+                          )}
                           {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('ko-KR') : '미등록'}
                           {doc.isRequired && <span className="ml-2 text-red-500 font-medium">필수</span>}
                         </p>

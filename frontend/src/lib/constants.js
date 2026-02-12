@@ -15,6 +15,27 @@ export const CHECKLIST_CATEGORY_LABELS = {
   MOVE_IN: '입주'
 };
 
+export const MAINTENANCE_CATEGORY_LABELS = {
+  REPAIR: '수리',
+  PLUMBING: '배관/수도',
+  ELECTRIC: '전기',
+  HEATING: '난방/보일러',
+  APPLIANCE: '가전제품',
+  OTHER: '기타'
+};
+
+export const MAINTENANCE_STATUS_LABELS = {
+  REQUESTED: '요청됨',
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+  CANCELLED: '취소'
+};
+
+export const PAID_BY_LABELS = {
+  TENANT: '세입자 부담',
+  LANDLORD: '임대인 부담'
+};
+
 export const CONTRACT_PHASES = [
   { id: 'ALL', label: '전체' },
   { id: 'PRE_CONTRACT', label: '계약전', icon: '📋' },
