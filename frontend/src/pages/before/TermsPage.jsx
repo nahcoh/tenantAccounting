@@ -1,14 +1,16 @@
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { CATEGORY_LABELS } from '../../lib/constants';
+import { CATEGORY_LABELS, CONTRACT_PHASE_LABELS } from '../../lib/constants';
 import { isImageFile, isPdfFile } from '../../lib/utils';
 
 export default function TermsPage() {
   const {
-    specialTerms, termsLoading, expandedCards, previewUrls,
+    filteredTerms, termsLoading, expandedCards, previewUrls,
     termFileInputRefs, toggleCard, handleTermFileUpload, handleTermFileDownload,
     handleDeleteSpecialTerm, handleToggleTermConfirm, openAddModal,
   } = useOutletContext();
+
+  const specialTerms = filteredTerms;
 
   return (
     <div className="space-y-3">
@@ -58,6 +60,11 @@ export default function TermsPage() {
                           <span className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 mr-1">
                             {CATEGORY_LABELS[term.category] || term.category}
                           </span>
+                          {term.phase && (
+                            <span className="px-1.5 py-0.5 bg-blue-50 rounded text-blue-600 mr-1">
+                              {CONTRACT_PHASE_LABELS[term.phase]}
+                            </span>
+                          )}
                           {term.createdAt ? new Date(term.createdAt).toLocaleDateString('ko-KR') : ''}
                         </p>
                         {term.fileName && <p className="text-xs text-blue-600 mt-0.5">{term.fileName}</p>}
@@ -141,3 +148,5 @@ export default function TermsPage() {
     </div>
   );
 }
+
+
