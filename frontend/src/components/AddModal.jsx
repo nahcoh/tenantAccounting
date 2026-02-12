@@ -2,6 +2,9 @@ import React from 'react';
 import { formatMoney, parseMoney } from '../lib/utils';
 import { CONTRACT_PHASES } from '../lib/constants';
 
+// AddModal에서 처리하는 모달 타입 목록
+const HANDLED_MODAL_TYPES = ['contract', 'editContract', 'document', 'term', 'checklist', 'maintenance'];
+
 export default function AddModal({
   showAddModal, modalType, closeModal, submitting,
   contractForm, setContractForm, openDaumPostcode,
@@ -11,9 +14,10 @@ export default function AddModal({
   checklistForm, setChecklistForm, handleCreateChecklist,
   maintenanceForm, setMaintenanceForm, handleCreateMaintenance,
 }) {
-  if (!showAddModal) return null;
+  // 처리하지 않는 모달 타입이면 렌더링하지 않음 (다른 컴포넌트에서 처리)
+  if (!showAddModal || !HANDLED_MODAL_TYPES.includes(modalType)) return null;
 
-  const phaseOptions = CONTRACT_PHASES.filter(p => p.id !== 'ALL');
+  const phaseOptions = CONTRACT_PHASES.filter(p => p.id !== 'ALL' && p.id !== 'MOVE_OUT');
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50" onClick={closeModal}>

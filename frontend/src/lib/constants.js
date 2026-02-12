@@ -5,14 +5,20 @@ export const CONTRACT_TYPE_LABELS = { JEONSE: '전세', MONTHLY: '월세', SEMI_
 export const CONTRACT_PHASE_LABELS = {
   PRE_CONTRACT: '계약전',
   ON_CONTRACT: '계약 시',
-  POST_CONTRACT: '계약 후'
+  POST_CONTRACT: '계약 후',
+  MOVE_OUT: '퇴거'
 };
 
 export const CHECKLIST_CATEGORY_LABELS = {
   VERIFICATION: '확인/검증',
   SAFETY: '안전',
   FINANCE: '재정',
-  MOVE_IN: '입주'
+  MOVE_IN: '입주',
+  DEPOSIT_RETURN: '보증금 반환',
+  FACILITY_RESTORE: '시설물 복구',
+  UTILITY_SETTLEMENT: '공과금 정산',
+  MOVE_OUT: '퇴거 절차',
+  DOCUMENTATION: '서류 정리'
 };
 
 export const MAINTENANCE_CATEGORY_LABELS = {
@@ -41,6 +47,7 @@ export const CONTRACT_PHASES = [
   { id: 'PRE_CONTRACT', label: '계약전', icon: '📋' },
   { id: 'ON_CONTRACT', label: '계약 시', icon: '✍️' },
   { id: 'POST_CONTRACT', label: '계약 후', icon: '🏠' },
+  { id: 'MOVE_OUT', label: '퇴거', icon: '📦' },
 ];
 
 // 필수 서류 목록 (기본 표시용)
