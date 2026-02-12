@@ -28,6 +28,8 @@ export default function useContract() {
   const termFileInputRef = useRef(null);
   const termFileInputRefs = useRef({});
   const [checklistForm, setChecklistForm] = useState({ phase: 'PRE_CONTRACT', category: 'VERIFICATION', title: '', description: '', isRequired: false });
+  const [moveOutChecklistForm, setMoveOutChecklistForm] = useState({ phase: 'MOVE_OUT', category: 'MOVE_OUT', title: '', description: '', isRequired: false });
+  const checklistFileInputRefs = useRef({});
   const [maintenanceForm, setMaintenanceForm] = useState({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -127,6 +129,11 @@ export default function useContract() {
     if (selectedPhase === 'ALL') return checklists;
     return checklists.filter(item => item.phase === selectedPhase);
   }, [checklists, selectedPhase]);
+
+  // 퇴거 체크리스트만 필터링
+  const moveOutChecklists = useMemo(() => {
+    return checklists.filter(item => item.phase === 'MOVE_OUT');
+  }, [checklists]);
 
   const handleCreateContract = async () => {
     if (!contractForm.address || !contractForm.startDate || !contractForm.endDate) {
@@ -303,6 +310,29 @@ export default function useContract() {
       setChecklistForm({ phase: 'PRE_CONTRACT', category: 'VERIFICATION', title: '', description: '', isRequired: false });
     } catch (err) {
       alert('체크리스트 항목 등록에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateMoveOutChecklist = async () => {
+    if (!moveOutChecklistForm.title) { alert('항목명을 입력해주세요.'); return; }
+    setSubmitting(true);
+    try {
+      await api.post(`/api/contracts/${contract.id}/checklists`, {
+        phase: 'MOVE_OUT',
+        category: moveOutChecklistForm.category,
+        title: moveOutChecklistForm.title,
+        description: moveOutChecklistForm.description,
+        isRequired: moveOutChecklistForm.isRequired,
+      });
+      const res = await api.get(`/api/contracts/${contract.id}/checklists`);
+      setChecklists(res.data);
+      setShowAddModal(false);
+      setMoveOutChecklistForm({ phase: 'MOVE_OUT', category: 'MOVE_OUT', title: '', description: '', isRequired: false });
+    } catch (err) {
+      alert('퇴거 체크리스트 항목 등록에 실패했습니다.');
       console.error(err);
     } finally {
       setSubmitting(false);
@@ -586,12 +616,15 @@ export default function useContract() {
     checklists, checklistsLoading,
     maintenances, maintenancesLoading,
     filteredDocuments, filteredTerms, filteredChecklists,
+    moveOutChecklists,
     selectedPhase, setSelectedPhase,
     expandedCards, previewUrls,
     contractForm, setContractForm, fileInputRefs,
     docForm, setDocForm, docFileInputRef,
     termForm, setTermForm, termFileInputRef, termFileInputRefs,
     checklistForm, setChecklistForm,
+    moveOutChecklistForm, setMoveOutChecklistForm,
+    checklistFileInputRefs,
     maintenanceForm, setMaintenanceForm,
     showAddModal, modalType,
     handleCreateContract, handleUpdateContract, handleDeleteContract,
@@ -601,6 +634,7 @@ export default function useContract() {
     handleToggleTermConfirm,
     handleCreateChecklist, handleToggleChecklistComplete, handleDeleteChecklist,
     handleChecklistFileUpload, handleChecklistFileDownload, handleChecklistFileDelete,
+    handleCreateMoveOutChecklist,
     handleCreateMaintenance, handleUpdateMaintenanceStatus, handleDeleteMaintenance,
     handleMaintenanceFileUpload, handleMaintenanceFileDownload, handleMaintenanceFileDelete,
     handleFileUpload, handleFileDownload,
