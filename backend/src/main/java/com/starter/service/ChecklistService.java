@@ -205,6 +205,17 @@ public class ChecklistService {
         createDefaultChecklist(contract, ContractPhase.POST_CONTRACT, ChecklistCategory.MOVE_IN, "공과금 명의 변경", "전기, 가스, 수도 등 명의 변경", true);
         createDefaultChecklist(contract, ContractPhase.POST_CONTRACT, ChecklistCategory.VERIFICATION, "시설물 상태 점검", "입주 전 시설물 상태 확인 및 사진 촬영", true);
         createDefaultChecklist(contract, ContractPhase.POST_CONTRACT, ChecklistCategory.FINANCE, "전세보험 가입", "전세보증보험 가입 검토", false);
+
+        // MOVE_OUT - 퇴거
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.DEPOSIT_RETURN, "보증금 반환 일정 확인", "임대인과 보증금 반환 일정 협의", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.DEPOSIT_RETURN, "보증금 반환 계좌 확인", "보증금 반환받을 계좌 정보 전달", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.FACILITY_RESTORE, "시설물 원상복구 확인", "원상복구 필요 항목 확인 및 조치", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.UTILITY_SETTLEMENT, "공과금 정산", "전기, 가스, 수도 등 공과금 최종 정산", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.UTILITY_SETTLEMENT, "관리비 정산", "관리비 최종 정산 및 미납금 확인", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.MOVE_OUT, "전입신고 말소", "주민센터에서 전입신고 말소 처리", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.DOCUMENTATION, "퇴거 전 사진 촬영", "퇴거 전 집 상태 사진 촬영 보관", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.MOVE_OUT, "열쇠 반환", "임대인에게 열쇠 반환", true);
+        createDefaultChecklist(contract, ContractPhase.MOVE_OUT, ChecklistCategory.DOCUMENTATION, "퇴거 확인서 수령", "임대인으로부터 퇴거 확인서 수령", false);
     }
 
     private void createDefaultChecklist(Contract contract, ContractPhase phase, ChecklistCategory category,
