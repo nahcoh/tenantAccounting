@@ -7,7 +7,7 @@ export default function DocumentsPage() {
   const {
     filteredDocuments, documentsLoading, expandedCards, previewUrls,
     fileInputRefs, toggleCard, handleFileUpload, handleFileDownload,
-    handleDeleteDocument, openAddModal,
+    handleDeleteDocumentFile, openAddModal,
   } = useOutletContext();
 
   const documents = filteredDocuments;
@@ -124,7 +124,7 @@ export default function DocumentsPage() {
                         </button>
                       )}
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteDocumentFile(doc.id); }}
                         className="py-2 px-3 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                       >
                         삭제

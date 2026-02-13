@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   ClipboardCheck, 
   Home, 
@@ -196,6 +196,15 @@ const LandingPage = () => {
               <Home className="text-slate-600 w-4 h-4" />
             </div>
             <span className="text-lg font-bold text-slate-800">Ziplog</span>
+          </div>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <Link to="/terms" className="text-slate-500 hover:text-slate-700 text-sm">
+              이용약관
+            </Link>
+            <span className="text-slate-300">|</span>
+            <Link to="/privacy" className="text-slate-500 hover:text-slate-700 text-sm">
+              개인정보 처리방침
+            </Link>
           </div>
           <p className="text-slate-500 text-sm">
             © 2026 Ziplog. 모든 권리는 보호됩니다.

@@ -61,7 +61,7 @@ export default function CalendarPage() {
     setCalendarLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/api/payments/calendar/${calendarYear}/${calendarMonth}`);
+      const response = await api.get(`/payments/calendar/${calendarYear}/${calendarMonth}`);
       setCalendarData({
         ...response.data,
         payments: response.data.payments || [],
@@ -113,7 +113,7 @@ export default function CalendarPage() {
     try {
       // 가상 항목(음수 ID)인 경우 실제 항목으로 생성
       if (payment.id < 0) {
-        const createResponse = await api.post('/api/payments', {
+        const createResponse = await api.post('/payments', {
           name: payment.name,
           category: payment.category,
           amount: Number(payment.amount),
@@ -126,12 +126,12 @@ export default function CalendarPage() {
         });
         // 생성 후 상태 변경
         if (newStatus !== 'UPCOMING') {
-          await api.patch(`/api/payments/${createResponse.data.id}/status?status=${newStatus}`);
+          await api.patch(`/payments/${createResponse.data.id}/status?status=${newStatus}`);
         }
         // 새로 생성된 항목으로 selectedPayment 업데이트
         setSelectedPayment({ ...payment, id: createResponse.data.id, status: newStatus });
       } else {
-        await api.patch(`/api/payments/${payment.id}/status?status=${newStatus}`);
+        await api.patch(`/payments/${payment.id}/status?status=${newStatus}`);
         // selectedPayment 상태 업데이트
         setSelectedPayment({ ...payment, status: newStatus });
       }

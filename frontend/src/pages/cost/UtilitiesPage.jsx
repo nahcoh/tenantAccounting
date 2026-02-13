@@ -44,7 +44,7 @@ export default function UtilitiesPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/api/utilities/summary/${yearMonth}`);
+      const response = await api.get(`/utilities/summary/${yearMonth}`);
       setData(response.data);
     } catch (err) {
       if (err.response?.status === 404) {
@@ -125,7 +125,7 @@ export default function UtilitiesPage() {
     setSubmitting(true);
     try {
       const typeInfo = getTypeInfo(form.type);
-      const utilityRes = await api.post('/api/utilities', {
+      const utilityRes = await api.post('/utilities', {
         type: form.type,
         yearMonth,
         amount: Number(form.amount),
@@ -141,7 +141,7 @@ export default function UtilitiesPage() {
         // 해당 월의 납부일 생성
         const dueDate = `${yearMonth}-${String(dueDay).padStart(2, '0')}`;
         const utilityId = utilityRes.data.id;
-        await api.post('/api/payments', {
+        await api.post('/payments', {
           name: `${typeInfo.label} 요금`,
           category: 'UTILITY',
           amount: Number(form.amount),
@@ -177,7 +177,7 @@ export default function UtilitiesPage() {
     setSubmitting(true);
     try {
       const typeInfo = getTypeInfo(form.type);
-      await api.put(`/api/utilities/${editingUtility.id}`, {
+      await api.put(`/utilities/${editingUtility.id}`, {
         type: form.type,
         yearMonth,
         amount: Number(form.amount),
@@ -189,10 +189,10 @@ export default function UtilitiesPage() {
 
       // 연관된 납부일정 업데이트
       try {
-        const paymentsRes = await api.get(`/api/payments/source/UTILITY/${editingUtility.id}`);
+        const paymentsRes = await api.get(`/payments/source/UTILITY/${editingUtility.id}`);
         const payments = paymentsRes.data;
         for (const payment of payments) {
-          await api.put(`/api/payments/${payment.id}`, {
+          await api.put(`/payments/${payment.id}`, {
             name: `${typeInfo.label} 요금`,
             category: 'UTILITY',
             amount: Number(form.amount),
@@ -221,9 +221,9 @@ export default function UtilitiesPage() {
     if (!window.confirm('이 공과금을 삭제하시겠습니까?\n관련 납부일정도 함께 삭제됩니다.')) return;
     try {
       // 관련 납부일정 먼저 삭제
-      await api.delete(`/api/payments/source/UTILITY/${id}`);
+      await api.delete(`/payments/source/UTILITY/${id}`);
       // 공과금 삭제
-      await api.delete(`/api/utilities/${id}`);
+      await api.delete(`/utilities/${id}`);
       await fetchData();
     } catch (err) {
       alert('삭제에 실패했습니다.');

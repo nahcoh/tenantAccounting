@@ -72,7 +72,7 @@ export default function ContractPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/api/contracts');
+      const response = await api.get('/contracts');
       setContracts(response.data);
     } catch (err) {
       if (err.response?.status === 404) {
@@ -159,7 +159,7 @@ export default function ContractPage() {
         endDate: form.endDate,
       };
 
-      const response = await api.post('/api/contracts', contractData);
+      const response = await api.post('/contracts', contractData);
 
       // 납부일정에 월세/관리비 등록
       if (form.syncToCalendar) {
@@ -167,7 +167,7 @@ export default function ContractPage() {
         const contractId = response.data.id;
 
         if (contractData.monthlyRent && contractData.monthlyRent > 0) {
-          await api.post('/api/payments', {
+          await api.post('/payments', {
             name: '월세',
             category: 'RENT',
             amount: contractData.monthlyRent,
@@ -181,7 +181,7 @@ export default function ContractPage() {
         }
 
         if (contractData.maintenanceFee && contractData.maintenanceFee > 0) {
-          await api.post('/api/payments', {
+          await api.post('/payments', {
             name: '관리비',
             category: 'MAINTENANCE',
             amount: contractData.maintenanceFee,
@@ -215,7 +215,7 @@ export default function ContractPage() {
       const monthlyRent = parseNumber(form.monthlyRent) ? Number(parseNumber(form.monthlyRent)) : null;
       const maintenanceFee = parseNumber(form.maintenanceFee) ? Number(parseNumber(form.maintenanceFee)) : null;
 
-      await api.put(`/api/contracts/${editingContract.id}`, {
+      await api.put(`/contracts/${editingContract.id}`, {
         type: form.type,
         address: form.address,
         jeonseDeposit: parseNumber(form.jeonseDeposit) ? Number(parseNumber(form.jeonseDeposit)) : null,
@@ -227,11 +227,11 @@ export default function ContractPage() {
 
       // 연관된 납부일정 업데이트
       try {
-        const paymentsRes = await api.get(`/api/payments/source/CONTRACT/${editingContract.id}`);
+        const paymentsRes = await api.get(`/payments/source/CONTRACT/${editingContract.id}`);
         const payments = paymentsRes.data;
         for (const payment of payments) {
           if (payment.category === 'RENT' && monthlyRent) {
-            await api.put(`/api/payments/${payment.id}`, {
+            await api.put(`/payments/${payment.id}`, {
               name: '월세',
               category: 'RENT',
               amount: monthlyRent,
@@ -240,7 +240,7 @@ export default function ContractPage() {
               autoPay: payment.autoPay,
             });
           } else if (payment.category === 'MAINTENANCE' && maintenanceFee) {
-            await api.put(`/api/payments/${payment.id}`, {
+            await api.put(`/payments/${payment.id}`, {
               name: '관리비',
               category: 'MAINTENANCE',
               amount: maintenanceFee,
@@ -268,9 +268,9 @@ export default function ContractPage() {
     if (!window.confirm('이 계약 정보를 삭제하시겠습니까?\n연관된 체크리스트, 문서, 납부일정도 함께 삭제됩니다.')) return;
     try {
       // 관련 납부일정 먼저 삭제
-      await api.delete(`/api/payments/source/CONTRACT/${id}`);
+      await api.delete(`/payments/source/CONTRACT/${id}`);
       // 계약 삭제
-      await api.delete(`/api/contracts/${id}`);
+      await api.delete(`/contracts/${id}`);
       await fetchData();
     } catch (err) {
       alert('삭제에 실패했습니다.');
