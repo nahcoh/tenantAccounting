@@ -11,10 +11,12 @@ const OAuth2RedirectHandler = () => {
         const refreshToken = searchParams.get('refreshToken');
 
         if (accessToken && refreshToken) {
+            console.log('[OAuth2] Tokens received, saving to localStorage');
             localStorage.setItem('accessToken', accessToken);
             localStorage.setItem('refreshToken', refreshToken);
-            navigate('/');
+            navigate('/', { replace: true });
         } else {
+            console.error('[OAuth2] No tokens found in URL');
             // Handle error case
             navigate('/auth', { state: { error: "로그인에 실패했습니다." } });
         }

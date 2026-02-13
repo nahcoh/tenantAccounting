@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
 });
 
 api.interceptors.request.use((config) => {
@@ -36,7 +36,9 @@ api.interceptors.response.use(
 
       if (!refreshToken) {
         localStorage.removeItem('accessToken');
-        window.location.href = '/auth';
+        if (window.location.pathname !== '/' && window.location.pathname !== '/auth') {
+          window.location.href = '/auth';
+        }
         return Promise.reject(error);
       }
 
@@ -53,7 +55,8 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post('http://localhost:8080/api/auth/refresh', {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+        const res = await axios.post(`${baseUrl}/api/auth/refresh`, {
           refreshToken,
         });
 
@@ -68,7 +71,9 @@ api.interceptors.response.use(
         processQueue(refreshError, null);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        window.location.href = '/auth';
+        if (window.location.pathname !== '/' && window.location.pathname !== '/auth') {
+          window.location.href = '/auth';
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

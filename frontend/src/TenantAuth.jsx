@@ -320,7 +320,7 @@ export default function TenantAuth() {
               <div className="mt-6 space-y-3">
                 <button
                   type="button"
-                  onClick={() => window.location.href = 'http://localhost:8080/oauth2/authorize/google'}
+                  onClick={() => window.location.href = `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"}/oauth2/authorize/google`}
                   className="w-full inline-flex items-center justify-center gap-3 py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -333,7 +333,7 @@ export default function TenantAuth() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.location.href = 'http://localhost:8080/oauth2/authorize/kakao'}
+                  onClick={() => window.location.href = `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"}/oauth2/authorize/kakao`}
                   className="w-full inline-flex items-center justify-center gap-3 py-2.5 px-4 rounded-lg shadow-sm text-sm font-medium transition-colors"
                   style={{ backgroundColor: '#FEE500', color: '#000000D9' }}
                 >
