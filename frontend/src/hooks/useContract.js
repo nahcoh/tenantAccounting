@@ -248,6 +248,14 @@ export default function useContract() {
       }
       const res = await api.get(`/contracts/${contract.id}/documents`);
       setDocuments(res.data);
+      
+      // 방금 추가한 서류의 단계로 탭 전환 (사용자가 바로 확인할 수 있도록)
+      if (docForm.phase) {
+        setSelectedPhase(docForm.phase);
+      } else {
+        setSelectedPhase('ALL');
+      }
+      
       setShowAddModal(false);
       setDocForm({ name: '', category: 'CONTRACT', phase: null, isRequired: false, file: null });
     } catch (err) {
@@ -286,6 +294,14 @@ export default function useContract() {
       }
       const res = await api.get(`/contracts/${contract.id}/special-terms`);
       setSpecialTerms(res.data);
+
+      // 방금 추가한 특약사항의 단계로 탭 전환
+      if (termForm.phase) {
+        setSelectedPhase(termForm.phase);
+      } else {
+        setSelectedPhase('ALL');
+      }
+
       setShowAddModal(false);
       setTermForm({ category: 'REPAIR', phase: null, content: '', file: null });
     } catch (err) {
