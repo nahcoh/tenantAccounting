@@ -247,7 +247,6 @@ export default function UtilitiesPage() {
   const currentTotal = data?.currentTotal || 0;
   const prevTotal = data?.prevTotal || 0;
   const comparison = data?.comparison || {};
-  const byType = data?.byType || {};
 
   // 등록되지 않은 공과금 유형
   const registeredTypes = utilities.map(u => u.type);
