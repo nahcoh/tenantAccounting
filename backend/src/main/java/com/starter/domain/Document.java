@@ -1,5 +1,6 @@
 package com.starter.domain;
 
+import com.starter.enums.ContractPhase;
 import com.starter.enums.DocumentCategory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -33,6 +34,10 @@ public class Document {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DocumentCategory category;
+
+    @Enumerated(EnumType.STRING)
+    @Column
+    private ContractPhase phase;
 
     @Column(name = "file_path", length = 500)
     private String filePath;

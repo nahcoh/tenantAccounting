@@ -1,5 +1,6 @@
 package com.starter.dto.request;
 
+import com.starter.enums.ContractPhase;
 import com.starter.enums.DocumentCategory;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -18,6 +19,8 @@ public class DocumentCreateRequest {
 
     @NotNull(message = "Category cannot be null")
     private DocumentCategory category;
+
+    private ContractPhase phase;
 
     @Size(max = 500, message = "File path cannot exceed 500 characters")
     private String filePath;

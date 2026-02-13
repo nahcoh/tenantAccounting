@@ -29,11 +29,13 @@ export const isPdfFile = (fileName) => {
 };
 
 export const getCategoryIcon = (category) => {
+  if (!category) return '💰';
   const icons = { RENT: '🏠', MAINTENANCE: '🔧', LOAN: '🏦', UTILITY: '⚡' };
   return icons[category.toUpperCase()] || '💰';
 };
 
 export const getStatusStyle = (status) => {
+  if (!status) return { className: 'bg-gray-100 text-gray-500', label: '-' };
   const statusUpper = status.toUpperCase();
   const styles = {
     PAID: 'bg-green-50 text-green-700',
@@ -44,11 +46,14 @@ export const getStatusStyle = (status) => {
     COMPLETED: 'bg-green-50 text-green-700',
     IN_PROGRESS: 'bg-blue-50 text-blue-700',
     RECORDED: 'bg-gray-100 text-gray-600',
+    REQUESTED: 'bg-orange-50 text-orange-700',
+    CANCELLED: 'bg-gray-100 text-gray-500',
   };
   const labels = {
     PAID: '납부 완료', UPCOMING: '예정', OVERDUE: '연체',
     UPLOADED: '업로드 완료', PENDING: '미등록', COMPLETED: '완료',
-    IN_PROGRESS: '진행 중', RECORDED: '기록됨'
+    IN_PROGRESS: '진행 중', RECORDED: '기록됨',
+    REQUESTED: '요청됨', CANCELLED: '취소',
   };
   return { className: styles[statusUpper] || '', label: labels[statusUpper] || status };
 };

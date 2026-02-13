@@ -31,6 +31,7 @@ export default function useContract() {
   const [moveOutChecklistForm, setMoveOutChecklistForm] = useState({ phase: 'MOVE_OUT', category: 'MOVE_OUT', title: '', description: '', isRequired: false });
   const checklistFileInputRefs = useRef({});
   const [maintenanceForm, setMaintenanceForm] = useState({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
+  const [editingMaintenanceId, setEditingMaintenanceId] = useState(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -509,13 +510,36 @@ export default function useContract() {
     if (!maintenanceForm.title) { alert('제목을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      await api.post(`/api/contracts/${contract.id}/maintenances`, {
+      const maintenanceRes = await api.post(`/api/contracts/${contract.id}/maintenances`, {
         title: maintenanceForm.title,
         category: maintenanceForm.category,
         description: maintenanceForm.description,
         cost: maintenanceForm.cost ? Number(maintenanceForm.cost) : null,
         paidBy: maintenanceForm.paidBy,
       });
+
+      // 임차인 부담(TENANT)이고 비용이 있으면 캘린더에 등록
+      if (maintenanceForm.paidBy === 'TENANT' && maintenanceForm.cost && Number(maintenanceForm.cost) > 0) {
+        try {
+          const today = new Date();
+          const dueDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          await api.post('/api/payments', {
+            name: `[유지보수] ${maintenanceForm.title}`,
+            category: 'MAINTENANCE',
+            amount: Number(maintenanceForm.cost),
+            paymentDay: today.getDate(),
+            dueDate: dueDate,
+            isRecurring: false,
+            autoPay: false,
+            status: 'UPCOMING',
+            sourceType: 'MAINTENANCE',
+            sourceId: maintenanceRes.data.id,
+          });
+        } catch (syncErr) {
+          console.error('납부일정 등록 실패:', syncErr);
+        }
+      }
+
       const res = await api.get(`/api/contracts/${contract.id}/maintenances`);
       setMaintenances(res.data);
       setShowAddModal(false);
@@ -528,10 +552,109 @@ export default function useContract() {
     }
   };
 
+  const handleUpdateMaintenance = async (maintenanceId) => {
+    if (!maintenanceForm.title) { alert('제목을 입력해주세요.'); return; }
+    setSubmitting(true);
+    try {
+      const newCost = maintenanceForm.cost ? Number(maintenanceForm.cost) : null;
+      const newPaidBy = maintenanceForm.paidBy;
+
+      const res = await api.put(`/api/maintenances/${maintenanceId}`, {
+        title: maintenanceForm.title,
+        category: maintenanceForm.category,
+        description: maintenanceForm.description,
+        cost: newCost,
+        paidBy: newPaidBy,
+      });
+
+      // 연관된 납부일정 업데이트/생성/삭제
+      try {
+        const paymentsRes = await api.get(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
+        const existingPayments = paymentsRes.data;
+
+        if (newPaidBy === 'TENANT' && newCost && newCost > 0) {
+          // 임차인 부담이고 비용이 있으면
+          if (existingPayments.length > 0) {
+            // 기존 납부일정 업데이트
+            for (const payment of existingPayments) {
+              await api.put(`/api/payments/${payment.id}`, {
+                name: `[유지보수] ${maintenanceForm.title}`,
+                category: 'MAINTENANCE',
+                amount: newCost,
+                paymentDay: payment.paymentDay,
+                isRecurring: false,
+                autoPay: false,
+              });
+            }
+          } else {
+            // 새로 납부일정 생성
+            const today = new Date();
+            const dueDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            await api.post('/api/payments', {
+              name: `[유지보수] ${maintenanceForm.title}`,
+              category: 'MAINTENANCE',
+              amount: newCost,
+              paymentDay: today.getDate(),
+              dueDate: dueDate,
+              isRecurring: false,
+              autoPay: false,
+              status: 'UPCOMING',
+              sourceType: 'MAINTENANCE',
+              sourceId: maintenanceId,
+            });
+          }
+        } else {
+          // 임차인 부담이 아니거나 비용이 없으면 기존 납부일정 삭제
+          if (existingPayments.length > 0) {
+            await api.delete(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
+          }
+        }
+      } catch (syncErr) {
+        console.error('납부일정 동기화 실패:', syncErr);
+      }
+
+      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+      setShowAddModal(false);
+      setEditingMaintenanceId(null);
+      setMaintenanceForm({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
+    } catch (err) {
+      alert('유지보수 수정에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditMaintenanceModal = (maintenance) => {
+    setMaintenanceForm({
+      title: maintenance.title || '',
+      category: maintenance.category || 'REPAIR',
+      description: maintenance.description || '',
+      cost: maintenance.cost ? String(maintenance.cost) : '',
+      paidBy: maintenance.paidBy || 'LANDLORD',
+    });
+    setEditingMaintenanceId(maintenance.id);
+    setModalType('editMaintenance');
+    setShowAddModal(true);
+  };
+
   const handleUpdateMaintenanceStatus = async (maintenanceId, status) => {
     try {
       const res = await api.patch(`/api/maintenances/${maintenanceId}/status?status=${status}`);
       setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+
+      // 완료 상태로 변경 시 연관된 납부일정도 납부완료 처리
+      if (status === 'COMPLETED') {
+        try {
+          const paymentsRes = await api.get(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
+          const payments = paymentsRes.data;
+          for (const payment of payments) {
+            await api.patch(`/api/payments/${payment.id}/status?status=PAID`);
+          }
+        } catch (syncErr) {
+          console.error('납부일정 상태 동기화 실패:', syncErr);
+        }
+      }
     } catch (err) {
       alert('상태 변경에 실패했습니다.');
       console.error(err);
@@ -539,8 +662,15 @@ export default function useContract() {
   };
 
   const handleDeleteMaintenance = async (maintenanceId) => {
-    if (!window.confirm('이 유지보수 기록을 삭제하시겠습니까?')) return;
+    if (!window.confirm('이 유지보수 기록을 삭제하시겠습니까?\n관련 납부일정도 함께 삭제됩니다.')) return;
     try {
+      // 관련 납부일정 먼저 삭제
+      try {
+        await api.delete(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
+      } catch (syncErr) {
+        console.error('납부일정 삭제 실패:', syncErr);
+      }
+      // 유지보수 기록 삭제
       await api.delete(`/api/maintenances/${maintenanceId}`);
       setMaintenances(prev => prev.filter(item => item.id !== maintenanceId));
     } catch (err) {
@@ -600,6 +730,8 @@ export default function useContract() {
   const closeModal = () => {
     setShowAddModal(false);
     setModalType('');
+    setEditingMaintenanceId(null);
+    setMaintenanceForm({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
   };
 
   const openDaumPostcode = () => {
@@ -635,7 +767,8 @@ export default function useContract() {
     handleCreateChecklist, handleToggleChecklistComplete, handleDeleteChecklist,
     handleChecklistFileUpload, handleChecklistFileDownload, handleChecklistFileDelete,
     handleCreateMoveOutChecklist,
-    handleCreateMaintenance, handleUpdateMaintenanceStatus, handleDeleteMaintenance,
+    handleCreateMaintenance, handleUpdateMaintenance, handleUpdateMaintenanceStatus, handleDeleteMaintenance,
+    openEditMaintenanceModal, editingMaintenanceId,
     handleMaintenanceFileUpload, handleMaintenanceFileDownload, handleMaintenanceFileDelete,
     handleFileUpload, handleFileDownload,
     handleTermFileUpload, handleTermFileDownload,
