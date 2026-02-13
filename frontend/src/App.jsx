@@ -4,6 +4,7 @@ import TenantAuth from './TenantAuth';
 import OAuth2RedirectHandler from './OAuth2RedirectHandler';
 import PrivateRoute from './components/PrivateRoute';
 import AppLayout from './components/AppLayout';
+import LandingPage from './pages/LandingPage';
 import CostLayout from './pages/cost/CostLayout';
 import CalendarPage from './pages/cost/CalendarPage';
 import OverviewPage from './pages/cost/OverviewPage';
@@ -20,9 +21,12 @@ import AfterLayout from './pages/after/AfterLayout';
 import ChecklistPage from './pages/after/ChecklistPage';
 
 function App() {
+  const isAuthenticated = !!localStorage.getItem('accessToken');
+
   return (
     <Router>
       <Routes>
+        <Route path="/" element={isAuthenticated ? <Navigate to="/before/documents" replace /> : <LandingPage />} />
         <Route path="/auth" element={<TenantAuth />} />
         <Route path="/oauth/redirect" element={<OAuth2RedirectHandler />} />
 
