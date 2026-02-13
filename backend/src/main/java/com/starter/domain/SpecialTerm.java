@@ -1,5 +1,6 @@
 package com.starter.domain;
 
+import com.starter.enums.ContractPhase;
 import com.starter.enums.SpecialTermCategory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -26,6 +27,10 @@ public class SpecialTerm {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SpecialTermCategory category;
+
+    @Enumerated(EnumType.STRING)
+    @Column
+    private ContractPhase phase;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;

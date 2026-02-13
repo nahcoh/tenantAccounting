@@ -1,11 +1,14 @@
 package com.starter.service;
 
+import com.starter.domain.Contract;
 import com.starter.domain.Payment;
 import com.starter.domain.User;
 import com.starter.dto.request.PaymentCreateRequest;
 import com.starter.dto.response.PaymentCalendarResponse;
+import com.starter.dto.response.PaymentOverviewResponse;
 import com.starter.dto.response.PaymentResponse;
 import com.starter.enums.PaymentStatus;
+import com.starter.repository.ContractRepository;
 import com.starter.repository.PaymentRepository;
 import com.starter.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,11 +19,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,21 +36,76 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
+    private final ContractRepository contractRepository;
 
+    @Transactional
     public PaymentCalendarResponse getMonthlyPayments(Long userId, int year, int month) {
         LocalDate startDate = LocalDate.of(year, month, 1);
         LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
+        LocalDate today = LocalDate.now();
 
-        // [수정] 이제 isRecurring 여부와 상관없이, 해당 월에 '마감일(dueDate)'이 있는 모든 내역을 가져와
-        // 이를 위해 Repository에 findByUserIdAndDueDateBetween 메서드가 필요해
-        List<Payment> allMonthlyPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, startDate, endDate);
+        // 해당 월의 실제 납부 내역 조회
+        List<Payment> actualPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, startDate, endDate);
 
-        // DTO 변환
-        List<PaymentResponse> monthlyPayments = allMonthlyPayments.stream()
-            .map(this::toPaymentResponse)
-            .collect(Collectors.toList());
+        // 연체 처리: UPCOMING 상태이고 납부일이 오늘보다 이전이면 OVERDUE로 변경
+        for (Payment payment : actualPayments) {
+            if (payment.getStatus() == PaymentStatus.UPCOMING &&
+                payment.getDueDate() != null &&
+                payment.getDueDate().isBefore(today)) {
+                payment.setStatus(PaymentStatus.OVERDUE);
+                paymentRepository.save(payment);
+            }
+        }
 
-        // 금액 계산 (기존 로직 유지)
+        // 정기 납부 항목 조회 (전체)
+        List<Payment> recurringPayments = paymentRepository.findByUserIdAndIsRecurring(userId, true);
+
+        // 해당 월에 정기 납부 항목이 없으면 가상으로 추가
+        List<PaymentResponse> monthlyPayments = new ArrayList<>();
+
+        // 실제 납부 내역 추가
+        for (Payment payment : actualPayments) {
+            monthlyPayments.add(toPaymentResponse(payment));
+        }
+
+        // 정기 납부 항목 처리
+        for (Payment recurring : recurringPayments) {
+            Integer paymentDay = recurring.getPaymentDay();
+            if (paymentDay == null && recurring.getDueDate() != null) {
+                paymentDay = recurring.getDueDate().getDayOfMonth();
+            }
+            if (paymentDay == null) continue;
+
+            // 해당 월의 마지막 날보다 납부일이 크면 마지막 날로 조정
+            int lastDayOfMonth = endDate.getDayOfMonth();
+            int adjustedDay = Math.min(paymentDay, lastDayOfMonth);
+            LocalDate recurringDueDate = LocalDate.of(year, month, adjustedDay);
+
+            // 이미 해당 월에 같은 이름의 납부 내역이 있는지 확인
+            boolean alreadyExists = actualPayments.stream()
+                .anyMatch(p -> p.getName().equals(recurring.getName()) &&
+                              p.getCategory() == recurring.getCategory());
+
+            if (!alreadyExists) {
+                // 가상의 정기 납부 항목 생성 (조회용)
+                PaymentStatus status = recurringDueDate.isBefore(today) ? PaymentStatus.OVERDUE : PaymentStatus.UPCOMING;
+
+                PaymentResponse virtualPayment = new PaymentResponse();
+                virtualPayment.setId(recurring.getId() * -1); // 음수 ID로 가상 항목 표시
+                virtualPayment.setName(recurring.getName());
+                virtualPayment.setCategory(recurring.getCategory());
+                virtualPayment.setAmount(recurring.getAmount());
+                virtualPayment.setPaymentDay(adjustedDay);
+                virtualPayment.setStatus(status);
+                virtualPayment.setAutoPay(recurring.getAutoPay());
+                virtualPayment.setIsRecurring(true);
+                virtualPayment.setDueDate(recurringDueDate);
+                virtualPayment.setPaidDate(null);
+                monthlyPayments.add(virtualPayment);
+            }
+        }
+
+        // 금액 계산
         BigDecimal totalAmount = monthlyPayments.stream()
             .map(PaymentResponse::getAmount)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -80,6 +141,194 @@ public class PaymentService {
         return savedPayment.getId();
     }
 
+    public PaymentOverviewResponse getOverview(Long userId, int year, int month) {
+        // 현재월 데이터
+        LocalDate currentMonthStart = LocalDate.of(year, month, 1);
+        LocalDate currentMonthEnd = currentMonthStart.with(TemporalAdjusters.lastDayOfMonth());
+        List<Payment> currentMonthPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, currentMonthStart, currentMonthEnd);
+
+        BigDecimal currentMonthTotal = currentMonthPayments.stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal currentMonthPaid = currentMonthPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.PAID)
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal currentMonthUpcoming = currentMonthTotal.subtract(currentMonthPaid);
+
+        // 전월 데이터
+        LocalDate prevMonthStart = currentMonthStart.minusMonths(1);
+        LocalDate prevMonthEnd = prevMonthStart.with(TemporalAdjusters.lastDayOfMonth());
+        List<Payment> prevMonthPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, prevMonthStart, prevMonthEnd);
+
+        BigDecimal previousMonthTotal = prevMonthPayments.stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 전월 대비 변화율 계산
+        BigDecimal monthOverMonthChange = BigDecimal.ZERO;
+        if (previousMonthTotal.compareTo(BigDecimal.ZERO) > 0) {
+            monthOverMonthChange = currentMonthTotal.subtract(previousMonthTotal)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(previousMonthTotal, 1, RoundingMode.HALF_UP);
+        }
+
+        // 카테고리별 지출
+        Map<String, BigDecimal> categoryBreakdown = new HashMap<>();
+        for (Payment payment : currentMonthPayments) {
+            String category = payment.getCategory().name();
+            categoryBreakdown.merge(category, payment.getAmount(), BigDecimal::add);
+        }
+
+        // 연간 누적 (1월부터 현재월까지)
+        LocalDate yearStart = LocalDate.of(year, 1, 1);
+        List<Payment> yearPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, yearStart, currentMonthEnd);
+        BigDecimal yearToDateTotal = yearPayments.stream()
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 최근 납부 내역 (최근 5건)
+        List<PaymentResponse> recentPayments = currentMonthPayments.stream()
+                .sorted((a, b) -> {
+                    if (a.getDueDate() == null && b.getDueDate() == null) return 0;
+                    if (a.getDueDate() == null) return 1;
+                    if (b.getDueDate() == null) return -1;
+                    return b.getDueDate().compareTo(a.getDueDate());
+                })
+                .limit(5)
+                .map(this::toPaymentResponse)
+                .collect(Collectors.toList());
+
+        // 계약 정보 기반 월 고정 지출
+        BigDecimal monthlyFixedCost = BigDecimal.ZERO;
+        List<Contract> contracts = contractRepository.findByUserId(userId);
+        if (!contracts.isEmpty()) {
+            Contract contract = contracts.get(0);
+            if (contract.getMonthlyRent() != null) {
+                monthlyFixedCost = monthlyFixedCost.add(contract.getMonthlyRent());
+            }
+            if (contract.getMaintenanceFee() != null) {
+                monthlyFixedCost = monthlyFixedCost.add(contract.getMaintenanceFee());
+            }
+        }
+
+        return PaymentOverviewResponse.builder()
+                .year(year)
+                .month(month)
+                .currentMonthTotal(currentMonthTotal)
+                .currentMonthPaid(currentMonthPaid)
+                .currentMonthUpcoming(currentMonthUpcoming)
+                .previousMonthTotal(previousMonthTotal)
+                .monthOverMonthChange(monthOverMonthChange)
+                .categoryBreakdown(categoryBreakdown)
+                .yearToDateTotal(yearToDateTotal)
+                .recentPayments(recentPayments)
+                .monthlyFixedCost(monthlyFixedCost)
+                .build();
+    }
+
+    public List<PaymentResponse> getAllPayments(Long userId, PaymentStatus status) {
+        List<Payment> payments;
+        if (status != null) {
+            payments = paymentRepository.findByUserIdAndStatus(userId, status);
+        } else {
+            payments = paymentRepository.findByUserId(userId);
+        }
+        return payments.stream()
+                .map(this::toPaymentResponse)
+                .collect(Collectors.toList());
+    }
+
+    public PaymentResponse getPayment(Long userId, Long paymentId) {
+        Payment payment = getPaymentAndVerifyOwner(userId, paymentId);
+        return toPaymentResponse(payment);
+    }
+
+    @Transactional
+    public PaymentResponse createPayment(Long userId, PaymentCreateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // status 파싱
+        PaymentStatus status = PaymentStatus.UPCOMING;
+        if (request.getStatus() != null) {
+            try {
+                status = PaymentStatus.valueOf(request.getStatus().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                status = PaymentStatus.UPCOMING;
+            }
+        }
+
+        Payment payment = Payment.builder()
+                .user(user)
+                .name(request.getName())
+                .category(request.getCategory())
+                .amount(request.getAmount())
+                .paymentDay(request.getPaymentDay() != null ? request.getPaymentDay() :
+                           (request.getDueDate() != null ? request.getDueDate().getDayOfMonth() : null))
+                .isRecurring(request.getIsRecurring() != null ? request.getIsRecurring() : false)
+                .autoPay(request.getAutoPay() != null ? request.getAutoPay() : false)
+                .dueDate(request.getDueDate())
+                .status(status)
+                .sourceType(request.getSourceType())
+                .sourceId(request.getSourceId())
+                .build();
+
+        Payment savedPayment = paymentRepository.save(payment);
+        return toPaymentResponse(savedPayment);
+    }
+
+    @Transactional
+    public PaymentResponse updatePayment(Long userId, Long paymentId, PaymentCreateRequest request) {
+        Payment payment = getPaymentAndVerifyOwner(userId, paymentId);
+
+        payment.setName(request.getName());
+        payment.setCategory(request.getCategory());
+        payment.setAmount(request.getAmount());
+        payment.setPaymentDay(request.getPaymentDay() != null ? request.getPaymentDay() :
+                            (request.getDueDate() != null ? request.getDueDate().getDayOfMonth() : null));
+        payment.setIsRecurring(request.getIsRecurring() != null ? request.getIsRecurring() : false);
+        payment.setAutoPay(request.getAutoPay() != null ? request.getAutoPay() : false);
+        payment.setDueDate(request.getDueDate());
+
+        Payment savedPayment = paymentRepository.save(payment);
+        return toPaymentResponse(savedPayment);
+    }
+
+    @Transactional
+    public PaymentResponse updatePaymentStatus(Long userId, Long paymentId, PaymentStatus status) {
+        Payment payment = getPaymentAndVerifyOwner(userId, paymentId);
+        payment.setStatus(status);
+
+        // 납부 완료 시 납부일 기록
+        if (status == PaymentStatus.PAID) {
+            payment.setPaidDate(LocalDate.now());
+        } else {
+            payment.setPaidDate(null);
+        }
+
+        Payment savedPayment = paymentRepository.save(payment);
+        return toPaymentResponse(savedPayment);
+    }
+
+    @Transactional
+    public void deletePayment(Long userId, Long paymentId) {
+        Payment payment = getPaymentAndVerifyOwner(userId, paymentId);
+        paymentRepository.delete(payment);
+    }
+
+    private Payment getPaymentAndVerifyOwner(Long userId, Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
+
+        if (!payment.getUser().getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+        return payment;
+    }
+
     public Long getUserIdByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"))
@@ -91,16 +340,31 @@ public class PaymentService {
         if (paymentDay == null && payment.getDueDate() != null) {
             paymentDay = payment.getDueDate().getDayOfMonth();
         }
-        return new PaymentResponse(
-                payment.getId(),
-                payment.getName(),
-                payment.getCategory(),
-                payment.getAmount(),
-                paymentDay,
-                payment.getStatus(),
-                payment.getAutoPay(),
-                payment.getDueDate(),
-                payment.getPaidDate()
-        );
+        PaymentResponse response = new PaymentResponse();
+        response.setId(payment.getId());
+        response.setName(payment.getName());
+        response.setCategory(payment.getCategory());
+        response.setAmount(payment.getAmount());
+        response.setPaymentDay(paymentDay);
+        response.setStatus(payment.getStatus());
+        response.setAutoPay(payment.getAutoPay());
+        response.setIsRecurring(payment.getIsRecurring());
+        response.setDueDate(payment.getDueDate());
+        response.setPaidDate(payment.getPaidDate());
+        response.setSourceType(payment.getSourceType());
+        response.setSourceId(payment.getSourceId());
+        return response;
+    }
+
+    @Transactional
+    public void deletePaymentsBySource(Long userId, String sourceType, Long sourceId) {
+        paymentRepository.deleteByUserIdAndSourceTypeAndSourceId(userId, sourceType, sourceId);
+    }
+
+    public List<PaymentResponse> getPaymentsBySource(Long userId, String sourceType, Long sourceId) {
+        return paymentRepository.findByUserIdAndSourceTypeAndSourceId(userId, sourceType, sourceId)
+                .stream()
+                .map(this::toPaymentResponse)
+                .collect(Collectors.toList());
     }
 }

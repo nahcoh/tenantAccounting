@@ -57,6 +57,13 @@ public class Payment {
     @Column(columnDefinition = "VARCHAR(255) DEFAULT 'UPCOMING'")
     private PaymentStatus status;
 
+    // 원본 데이터 추적용 (LOAN, CONTRACT, UTILITY)
+    @Column(name = "source_type", length = 50)
+    private String sourceType;
+
+    @Column(name = "source_id")
+    private Long sourceId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
