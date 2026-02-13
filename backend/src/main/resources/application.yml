@@ -26,13 +26,14 @@ spring:
           google:
             client-id: ${GOOGLE_CLIENT_ID:not-set}
             client-secret: ${GOOGLE_CLIENT_SECRET:not-set}
+            redirect-uri: "https://ziplog.kr/login/oauth2/code/google"
             scope:
               - email
               - profile
           kakao:
             client-id: ${KAKAO_CLIENT_ID:not-set}
             client-secret: ${KAKAO_CLIENT_SECRET:not-set}
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            redirect-uri: "https://ziplog.kr/login/oauth2/code/kakao"
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             scope:
