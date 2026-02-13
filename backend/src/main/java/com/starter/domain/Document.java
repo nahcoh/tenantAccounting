@@ -1,5 +1,6 @@
 package com.starter.domain;
 
+import com.starter.enums.ContractPhase;
 import com.starter.enums.DocumentCategory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -23,6 +24,10 @@ public class Document {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_id")
+    private Contract contract;
+
     @Column(nullable = false, length = 200)
     private String name;
 
@@ -30,8 +35,15 @@ public class Document {
     @Column(nullable = false)
     private DocumentCategory category;
 
-    @Column(name = "file_path", nullable = false, length = 500)
+    @Enumerated(EnumType.STRING)
+    @Column
+    private ContractPhase phase;
+
+    @Column(name = "file_path", length = 500)
     private String filePath;
+
+    @Column(name = "file_name", length = 300)
+    private String fileName;
 
     @Column(name = "is_required", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private Boolean isRequired;

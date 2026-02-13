@@ -32,6 +32,12 @@ public class PaymentCreateRequest {
     private Boolean isRecurring = false;
     private Boolean autoPay = false;
 
-    @NotNull(message = "Due date cannot be null")
+    // 정기 납부가 아닌 경우 필수, 정기 납부인 경우 선택
     private LocalDate dueDate;
+
+    private String status; // UPCOMING, PAID, OVERDUE
+
+    // 원본 데이터 추적용
+    private String sourceType; // LOAN, CONTRACT, UTILITY
+    private Long sourceId;
 }

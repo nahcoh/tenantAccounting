@@ -1,0 +1,105 @@
+package com.starter.controller;
+
+import com.starter.dto.request.SpecialTermCreateRequest;
+import com.starter.dto.response.SpecialTermResponse;
+import com.starter.security.UserPrincipal;
+import com.starter.service.SpecialTermService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+public class SpecialTermController {
+
+    private final SpecialTermService specialTermService;
+
+    @GetMapping("/api/contracts/{contractId}/special-terms")
+    public ResponseEntity<List<SpecialTermResponse>> getSpecialTerms(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long contractId) {
+        return ResponseEntity.ok(specialTermService.getSpecialTermsByContract(principal.getId(), contractId));
+    }
+
+    @PostMapping("/api/contracts/{contractId}/special-terms")
+    public ResponseEntity<SpecialTermResponse> createSpecialTerm(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long contractId,
+            @Valid @RequestBody SpecialTermCreateRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(specialTermService.createSpecialTerm(principal.getId(), contractId, request));
+    }
+
+    @PutMapping("/api/special-terms/{id}")
+    public ResponseEntity<SpecialTermResponse> updateSpecialTerm(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody SpecialTermCreateRequest request) {
+        return ResponseEntity.ok(specialTermService.updateSpecialTerm(principal.getId(), id, request));
+    }
+
+    @DeleteMapping("/api/special-terms/{id}")
+    public ResponseEntity<Void> deleteSpecialTerm(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        specialTermService.deleteSpecialTerm(principal.getId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/api/special-terms/{id}/confirm")
+    public ResponseEntity<SpecialTermResponse> toggleConfirm(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(specialTermService.toggleConfirm(principal.getId(), id));
+    }
+
+    @PostMapping("/api/special-terms/{id}/upload")
+    public ResponseEntity<SpecialTermResponse> uploadFile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(specialTermService.uploadFile(principal.getId(), id, file));
+    }
+
+    @GetMapping("/api/special-terms/{id}/download")
+    public ResponseEntity<Resource> downloadFile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        Resource resource = specialTermService.downloadFile(principal.getId(), id);
+        String encodedName = URLEncoder.encode(resource.getFilename(), StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + encodedName)
+                .body(resource);
+    }
+
+    @GetMapping("/api/special-terms/{id}/preview")
+    public ResponseEntity<Resource> previewFile(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id) {
+        Resource resource = specialTermService.downloadFile(principal.getId(), id);
+        String fileName = resource.getFilename() != null ? resource.getFilename().toLowerCase() : "";
+        MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) mediaType = MediaType.IMAGE_JPEG;
+        else if (fileName.endsWith(".png")) mediaType = MediaType.IMAGE_PNG;
+        else if (fileName.endsWith(".gif")) mediaType = MediaType.IMAGE_GIF;
+        else if (fileName.endsWith(".pdf")) mediaType = MediaType.APPLICATION_PDF;
+        else if (fileName.endsWith(".webp")) mediaType = MediaType.valueOf("image/webp");
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .body(resource);
+    }
+}

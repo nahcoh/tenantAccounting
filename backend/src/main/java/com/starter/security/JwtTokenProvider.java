@@ -28,26 +28,45 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(Authentication authentication) {
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        return generateToken(userDetails.getUsername(), accessTokenExpiration);
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserPrincipal userPrincipal) {
+            return generateToken(userPrincipal.getEmail(), userPrincipal.getDisplayName(), accessTokenExpiration);
+        }
+        UserDetails userDetails = (UserDetails) principal;
+        return generateToken(userDetails.getUsername(), null, accessTokenExpiration);
     }
 
     public String generateAccessToken(String email) {
-        return generateToken(email, accessTokenExpiration);
+        return generateToken(email, null, accessTokenExpiration);
+    }
+
+    public String generateAccessToken(String email, String name) {
+        return generateToken(email, name, accessTokenExpiration);
+    }
+
+    public String generateRefreshToken(Authentication authentication) {
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        return generateToken(userDetails.getUsername(), null, refreshTokenExpiration);
     }
 
     public String generateRefreshToken(String email) {
-        return generateToken(email, refreshTokenExpiration);
+        return generateToken(email, null, refreshTokenExpiration);
     }
 
-    private String generateToken(String subject, long expiration) {
+    public long getRefreshTokenExpiration() {
+        return refreshTokenExpiration;
+    }
+
+    private String generateToken(String subject, String name, long expiration) {
         Date now = new Date();
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(subject)
                 .issuedAt(now)
-                .expiration(new Date(now.getTime() + expiration))
-                .signWith(key)
-                .compact();
+                .expiration(new Date(now.getTime() + expiration));
+        if (name != null) {
+            builder.claim("name", name);
+        }
+        return builder.signWith(key).compact();
     }
 
     public String getEmailFromToken(String token) {
