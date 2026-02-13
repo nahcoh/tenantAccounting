@@ -36,12 +36,20 @@ export default function useContract() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalType, setModalType] = useState('');
 
+  // 헬퍼: 파일명을 WAF가 좋아하는 안전한 영문으로 변환
+  const getSafeFile = (file) => {
+    const ext = file.name.split('.').pop();
+    const newName = `upload_${Date.now()}.${ext}`;
+    // 원본 파일을 복사하되 이름을 바꾼 새로운 File 객체 생성
+    return new File([file], newName, { type: file.type });
+  };
+
   // Fetch contracts on mount
   useEffect(() => {
     const fetchContracts = async () => {
       setContractLoading(true);
       try {
-        const res = await api.get('/api/contracts');
+        const res = await api.get('/contracts');
         const contracts = res.data;
         setContract(contracts.length > 0 ? contracts[0] : null);
       } catch (err) {
@@ -60,8 +68,8 @@ export default function useContract() {
     const fetchDocuments = async () => {
       setDocumentsLoading(true);
       try {
-        const res = await api.get(`/api/contracts/${contract.id}/documents`);
-        setDocuments(res.data);
+        const res = await api.get(`/contracts/${contract.id}/documents`);
+        setDocuments(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error('Failed to fetch documents:', err);
       } finally {
@@ -72,8 +80,8 @@ export default function useContract() {
     const fetchSpecialTerms = async () => {
       setTermsLoading(true);
       try {
-        const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
-        setSpecialTerms(res.data);
+        const res = await api.get(`/contracts/${contract.id}/special-terms`);
+        setSpecialTerms(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error('Failed to fetch special terms:', err);
       } finally {
@@ -84,12 +92,11 @@ export default function useContract() {
     const fetchChecklists = async () => {
       setChecklistsLoading(true);
       try {
-        let res = await api.get(`/api/contracts/${contract.id}/checklists`);
-        // 체크리스트가 비어있으면 기본 체크리스트 초기화
-        if (res.data.length === 0) {
-          res = await api.post(`/api/contracts/${contract.id}/checklists/initialize`);
+        let res = await api.get(`/contracts/${contract.id}/checklists`);
+        if (res.data && res.data.length === 0) {
+          res = await api.post(`/contracts/${contract.id}/checklists/initialize`);
         }
-        setChecklists(res.data);
+        setChecklists(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error('Failed to fetch checklists:', err);
       } finally {
@@ -100,8 +107,8 @@ export default function useContract() {
     const fetchMaintenances = async () => {
       setMaintenancesLoading(true);
       try {
-        const res = await api.get(`/api/contracts/${contract.id}/maintenances`);
-        setMaintenances(res.data);
+        const res = await api.get(`/contracts/${contract.id}/maintenances`);
+        setMaintenances(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
         console.error('Failed to fetch maintenances:', err);
       } finally {
@@ -115,24 +122,26 @@ export default function useContract() {
     fetchMaintenances();
   }, [contract?.id]);
 
-  // 단계별 필터링된 데이터
   const filteredDocuments = useMemo(() => {
+    if (!Array.isArray(documents)) return [];
     if (selectedPhase === 'ALL') return documents;
     return documents.filter(doc => doc.phase === selectedPhase);
   }, [documents, selectedPhase]);
 
   const filteredTerms = useMemo(() => {
+    if (!Array.isArray(specialTerms)) return [];
     if (selectedPhase === 'ALL') return specialTerms;
     return specialTerms.filter(term => term.phase === selectedPhase);
   }, [specialTerms, selectedPhase]);
 
   const filteredChecklists = useMemo(() => {
+    if (!Array.isArray(checklists)) return [];
     if (selectedPhase === 'ALL') return checklists;
     return checklists.filter(item => item.phase === selectedPhase);
   }, [checklists, selectedPhase]);
 
-  // 퇴거 체크리스트만 필터링
   const moveOutChecklists = useMemo(() => {
+    if (!Array.isArray(checklists)) return [];
     return checklists.filter(item => item.phase === 'MOVE_OUT');
   }, [checklists]);
 
@@ -143,9 +152,7 @@ export default function useContract() {
     }
     setSubmitting(true);
     try {
-      const fullAddress = contractForm.addressDetail
-        ? `${contractForm.address} ${contractForm.addressDetail}`
-        : contractForm.address;
+      const fullAddress = contractForm.addressDetail ? `${contractForm.address} ${contractForm.addressDetail}` : contractForm.address;
       const payload = {
         type: contractForm.type,
         address: fullAddress,
@@ -155,7 +162,7 @@ export default function useContract() {
         startDate: contractForm.startDate,
         endDate: contractForm.endDate,
       };
-      const res = await api.post('/api/contracts', payload);
+      const res = await api.post('/contracts', payload);
       setContract(res.data);
       setShowAddModal(false);
       setContractForm({ type: 'JEONSE', address: '', addressDetail: '', jeonseDeposit: '', monthlyRent: '', maintenanceFee: '', startDate: '', endDate: '' });
@@ -174,9 +181,7 @@ export default function useContract() {
     }
     setSubmitting(true);
     try {
-      const fullAddress = contractForm.addressDetail
-        ? `${contractForm.address} ${contractForm.addressDetail}`
-        : contractForm.address;
+      const fullAddress = contractForm.addressDetail ? `${contractForm.address} ${contractForm.addressDetail}` : contractForm.address;
       const payload = {
         type: contractForm.type,
         address: fullAddress,
@@ -186,7 +191,7 @@ export default function useContract() {
         startDate: contractForm.startDate,
         endDate: contractForm.endDate,
       };
-      const res = await api.put(`/api/contracts/${contract.id}`, payload);
+      const res = await api.put(`/contracts/${contract.id}`, payload);
       setContract(res.data);
       setShowAddModal(false);
     } catch (err) {
@@ -198,9 +203,9 @@ export default function useContract() {
   };
 
   const handleDeleteContract = async () => {
-    if (!window.confirm('계약을 삭제하시겠습니까? 관련 서류와 특약사항도 모두 삭제됩니다.')) return;
+    if (!window.confirm('계약을 삭제하시겠습니까?')) return;
     try {
-      await api.delete(`/api/contracts/${contract.id}`);
+      await api.delete(`/contracts/${contract.id}`);
       setContract(null);
       setDocuments([]);
       setSpecialTerms([]);
@@ -230,7 +235,7 @@ export default function useContract() {
     if (!docForm.name) { alert('서류명을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      const createRes = await api.post(`/api/contracts/${contract.id}/documents`, {
+      const createRes = await api.post(`/contracts/${contract.id}/documents`, {
         name: docForm.name,
         category: docForm.category,
         phase: docForm.phase || null,
@@ -238,12 +243,10 @@ export default function useContract() {
       });
       if (docForm.file) {
         const formData = new FormData();
-        formData.append('file', docForm.file);
-        await api.post(`/api/documents/${createRes.data.id}/upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        formData.append('file', getSafeFile(docForm.file));
+        await api.post(`/documents/${createRes.data.id}/upload`, formData);
       }
-      const res = await api.get(`/api/contracts/${contract.id}/documents`);
+      const res = await api.get(`/contracts/${contract.id}/documents`);
       setDocuments(res.data);
       setShowAddModal(false);
       setDocForm({ name: '', category: 'CONTRACT', phase: null, isRequired: false, file: null });
@@ -255,10 +258,11 @@ export default function useContract() {
     }
   };
 
-  const handleDeleteDocument = async (docId) => {
+  const handleDeleteDocumentFile = async (docId) => {
+    if (!docId) { console.error('[handleDeleteDocumentFile] ID is missing'); return; }
     if (!window.confirm('이 서류를 삭제하시겠습니까?')) return;
     try {
-      await api.delete(`/api/documents/${docId}`);
+      await api.delete(`/documents/${docId}`);
       setDocuments(prev => prev.filter(d => d.id !== docId));
     } catch (err) {
       alert('삭제에 실패했습니다.');
@@ -270,19 +274,17 @@ export default function useContract() {
     if (!termForm.content) { alert('내용을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      const createRes = await api.post(`/api/contracts/${contract.id}/special-terms`, {
+      const createRes = await api.post(`/contracts/${contract.id}/special-terms`, {
         category: termForm.category,
         phase: termForm.phase || null,
         content: termForm.content,
       });
       if (termForm.file) {
         const formData = new FormData();
-        formData.append('file', termForm.file);
-        await api.post(`/api/special-terms/${createRes.data.id}/upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        formData.append('file', getSafeFile(termForm.file));
+        await api.post(`/special-terms/${createRes.data.id}/upload`, formData);
       }
-      const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
+      const res = await api.get(`/contracts/${contract.id}/special-terms`);
       setSpecialTerms(res.data);
       setShowAddModal(false);
       setTermForm({ category: 'REPAIR', phase: null, content: '', file: null });
@@ -298,14 +300,14 @@ export default function useContract() {
     if (!checklistForm.title) { alert('항목명을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      await api.post(`/api/contracts/${contract.id}/checklists`, {
+      await api.post(`/contracts/${contract.id}/checklists`, {
         phase: checklistForm.phase,
         category: checklistForm.category,
         title: checklistForm.title,
         description: checklistForm.description,
         isRequired: checklistForm.isRequired,
       });
-      const res = await api.get(`/api/contracts/${contract.id}/checklists`);
+      const res = await api.get(`/contracts/${contract.id}/checklists`);
       setChecklists(res.data);
       setShowAddModal(false);
       setChecklistForm({ phase: 'PRE_CONTRACT', category: 'VERIFICATION', title: '', description: '', isRequired: false });
@@ -321,14 +323,14 @@ export default function useContract() {
     if (!moveOutChecklistForm.title) { alert('항목명을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      await api.post(`/api/contracts/${contract.id}/checklists`, {
+      await api.post(`/contracts/${contract.id}/checklists`, {
         phase: 'MOVE_OUT',
         category: moveOutChecklistForm.category,
         title: moveOutChecklistForm.title,
         description: moveOutChecklistForm.description,
         isRequired: moveOutChecklistForm.isRequired,
       });
-      const res = await api.get(`/api/contracts/${contract.id}/checklists`);
+      const res = await api.get(`/contracts/${contract.id}/checklists`);
       setChecklists(res.data);
       setShowAddModal(false);
       setMoveOutChecklistForm({ phase: 'MOVE_OUT', category: 'MOVE_OUT', title: '', description: '', isRequired: false });
@@ -342,18 +344,21 @@ export default function useContract() {
 
   const handleToggleChecklistComplete = async (checklistId) => {
     try {
-      const res = await api.patch(`/api/checklists/${checklistId}/complete`);
-      setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+      const res = await api.patch(`/checklists/${checklistId}/complete`);
+      if (res.data && res.data.id) {
+        setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+      }
     } catch (err) {
       alert('상태 변경에 실패했습니다.');
       console.error(err);
     }
   };
 
-  const handleDeleteChecklist = async (checklistId) => {
+  const handleDeleteChecklistItem = async (checklistId) => {
+    if (!checklistId) { console.error('[handleDeleteChecklistItem] ID is missing'); return; }
     if (!window.confirm('이 체크리스트 항목을 삭제하시겠습니까?')) return;
     try {
-      await api.delete(`/api/checklists/${checklistId}`);
+      await api.delete(`/checklists/${checklistId}`);
       setChecklists(prev => prev.filter(item => item.id !== checklistId));
     } catch (err) {
       alert('삭제에 실패했습니다.');
@@ -362,23 +367,37 @@ export default function useContract() {
   };
 
   const handleChecklistFileUpload = async (checklistId, file) => {
+    console.log('[handleChecklistFileUpload] Start:', { checklistId, fileName: file.name });
+    setSubmitting(true);
     const formData = new FormData();
-    formData.append('file', file);
+    // 한글 파일명을 피하기 위해 안전한 영문 이름으로 교체하여 전송
+    formData.append('file', getSafeFile(file));
+    
     try {
-      const res = await api.post(`/api/checklists/${checklistId}/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+      const res = await api.post(`/checklists/${checklistId}/upload`, formData);
+      console.log('[handleChecklistFileUpload] Success:', res.data);
+      
+      if (res.data && res.data.id) {
+        setChecklists(prev => prev.map(item => 
+          item.id === checklistId ? { ...item, ...res.data } : item
+        ));
+      }
     } catch (err) {
-      const message = err.response?.data?.message || '파일 업로드에 실패했습니다. (PDF, JPG, PNG만 가능)';
-      alert(message);
-      console.error(err);
+      if (err.message === 'API_ROUTE_ERROR') {
+        alert('파일 업로드가 보안 정책에 의해 차단되었습니다. 파일 크기를 줄이거나 잠시 후 다시 시도해 주세요.');
+      } else {
+        const message = err.response?.data?.message || '파일 업로드에 실패했습니다.';
+        alert(message);
+      }
+      console.error('[handleChecklistFileUpload] Error:', err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleChecklistFileDownload = async (checklistId, fileName) => {
     try {
-      const res = await api.get(`/api/checklists/${checklistId}/download`, { responseType: 'blob' });
+      const res = await api.get(`/checklists/${checklistId}/download`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -395,19 +414,24 @@ export default function useContract() {
 
   const handleChecklistFileDelete = async (checklistId) => {
     if (!window.confirm('첨부 파일을 삭제하시겠습니까?')) return;
+    setSubmitting(true);
     try {
-      const res = await api.delete(`/api/checklists/${checklistId}/file`);
-      setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+      const res = await api.delete(`/checklists/${checklistId}/file`);
+      if (res.data && res.data.id) {
+        setChecklists(prev => prev.map(item => item.id === checklistId ? res.data : item));
+      }
     } catch (err) {
       alert('파일 삭제에 실패했습니다.');
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleDeleteSpecialTerm = async (termId) => {
     if (!window.confirm('이 특약사항을 삭제하시겠습니까?')) return;
     try {
-      await api.delete(`/api/special-terms/${termId}`);
+      await api.delete(`/special-terms/${termId}`);
       setSpecialTerms(prev => prev.filter(t => t.id !== termId));
     } catch (err) {
       alert('삭제에 실패했습니다.');
@@ -417,8 +441,10 @@ export default function useContract() {
 
   const handleToggleTermConfirm = async (termId) => {
     try {
-      const res = await api.patch(`/api/special-terms/${termId}/confirm`);
-      setSpecialTerms(prev => prev.map(t => t.id === termId ? res.data : t));
+      const res = await api.patch(`/special-terms/${termId}/confirm`);
+      if (res.data && res.data.id) {
+        setSpecialTerms(prev => prev.map(t => t.id === termId ? res.data : t));
+      }
     } catch (err) {
       alert('상태 변경에 실패했습니다.');
       console.error(err);
@@ -426,21 +452,25 @@ export default function useContract() {
   };
 
   const handleFileUpload = async (docId, file) => {
+    setSubmitting(true);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', getSafeFile(file));
     try {
-      await api.post(`/api/documents/${docId}/upload`, formData);
-      const res = await api.get(`/api/contracts/${contract.id}/documents`);
-      setDocuments(res.data);
+      const res = await api.post(`/documents/${docId}/upload`, formData);
+      if (res.data && res.data.id) {
+        setDocuments(prev => prev.map(doc => doc.id === docId ? res.data : doc));
+      }
     } catch (err) {
       alert('파일 업로드에 실패했습니다.');
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleFileDownload = async (docId, fileName) => {
     try {
-      const res = await api.get(`/api/documents/${docId}/download`, { responseType: 'blob' });
+      const res = await api.get(`/documents/${docId}/download`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -456,21 +486,25 @@ export default function useContract() {
   };
 
   const handleTermFileUpload = async (termId, file) => {
+    setSubmitting(true);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', getSafeFile(file));
     try {
-      await api.post(`/api/special-terms/${termId}/upload`, formData);
-      const res = await api.get(`/api/contracts/${contract.id}/special-terms`);
-      setSpecialTerms(res.data);
+      const res = await api.post(`/special-terms/${termId}/upload`, formData);
+      if (res.data && res.data.id) {
+        setSpecialTerms(prev => prev.map(term => term.id === termId ? res.data : term));
+      }
     } catch (err) {
       alert('파일 업로드에 실패했습니다.');
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleTermFileDownload = async (termId, fileName) => {
     try {
-      const res = await api.get(`/api/special-terms/${termId}/download`, { responseType: 'blob' });
+      const res = await api.get(`/special-terms/${termId}/download`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -495,7 +529,7 @@ export default function useContract() {
       if (isPreviewable) {
         try {
           const endpoint = prefix === 'doc' ? 'documents' : 'special-terms';
-          const res = await api.get(`/api/${endpoint}/${id}/preview`, { responseType: 'blob' });
+          const res = await api.get(`/${endpoint}/${id}/preview`, { responseType: 'blob' });
           const url = window.URL.createObjectURL(new Blob([res.data]));
           setPreviewUrls(prev => ({ ...prev, [key]: url }));
         } catch (err) {
@@ -505,42 +539,18 @@ export default function useContract() {
     }
   };
 
-  // Maintenance handlers
   const handleCreateMaintenance = async () => {
     if (!maintenanceForm.title) { alert('제목을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      const maintenanceRes = await api.post(`/api/contracts/${contract.id}/maintenances`, {
+      const maintenanceRes = await api.post(`/contracts/${contract.id}/maintenances`, {
         title: maintenanceForm.title,
         category: maintenanceForm.category,
         description: maintenanceForm.description,
         cost: maintenanceForm.cost ? Number(maintenanceForm.cost) : null,
         paidBy: maintenanceForm.paidBy,
       });
-
-      // 임차인 부담(TENANT)이고 비용이 있으면 캘린더에 등록
-      if (maintenanceForm.paidBy === 'TENANT' && maintenanceForm.cost && Number(maintenanceForm.cost) > 0) {
-        try {
-          const today = new Date();
-          const dueDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-          await api.post('/api/payments', {
-            name: `[유지보수] ${maintenanceForm.title}`,
-            category: 'MAINTENANCE',
-            amount: Number(maintenanceForm.cost),
-            paymentDay: today.getDate(),
-            dueDate: dueDate,
-            isRecurring: false,
-            autoPay: false,
-            status: 'UPCOMING',
-            sourceType: 'MAINTENANCE',
-            sourceId: maintenanceRes.data.id,
-          });
-        } catch (syncErr) {
-          console.error('납부일정 등록 실패:', syncErr);
-        }
-      }
-
-      const res = await api.get(`/api/contracts/${contract.id}/maintenances`);
+      const res = await api.get(`/contracts/${contract.id}/maintenances`);
       setMaintenances(res.data);
       setShowAddModal(false);
       setMaintenanceForm({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
@@ -556,64 +566,16 @@ export default function useContract() {
     if (!maintenanceForm.title) { alert('제목을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      const newCost = maintenanceForm.cost ? Number(maintenanceForm.cost) : null;
-      const newPaidBy = maintenanceForm.paidBy;
-
-      const res = await api.put(`/api/maintenances/${maintenanceId}`, {
+      const res = await api.put(`/maintenances/${maintenanceId}`, {
         title: maintenanceForm.title,
         category: maintenanceForm.category,
         description: maintenanceForm.description,
-        cost: newCost,
-        paidBy: newPaidBy,
+        cost: maintenanceForm.cost ? Number(maintenanceForm.cost) : null,
+        paidBy: maintenanceForm.paidBy,
       });
-
-      // 연관된 납부일정 업데이트/생성/삭제
-      try {
-        const paymentsRes = await api.get(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
-        const existingPayments = paymentsRes.data;
-
-        if (newPaidBy === 'TENANT' && newCost && newCost > 0) {
-          // 임차인 부담이고 비용이 있으면
-          if (existingPayments.length > 0) {
-            // 기존 납부일정 업데이트
-            for (const payment of existingPayments) {
-              await api.put(`/api/payments/${payment.id}`, {
-                name: `[유지보수] ${maintenanceForm.title}`,
-                category: 'MAINTENANCE',
-                amount: newCost,
-                paymentDay: payment.paymentDay,
-                isRecurring: false,
-                autoPay: false,
-              });
-            }
-          } else {
-            // 새로 납부일정 생성
-            const today = new Date();
-            const dueDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            await api.post('/api/payments', {
-              name: `[유지보수] ${maintenanceForm.title}`,
-              category: 'MAINTENANCE',
-              amount: newCost,
-              paymentDay: today.getDate(),
-              dueDate: dueDate,
-              isRecurring: false,
-              autoPay: false,
-              status: 'UPCOMING',
-              sourceType: 'MAINTENANCE',
-              sourceId: maintenanceId,
-            });
-          }
-        } else {
-          // 임차인 부담이 아니거나 비용이 없으면 기존 납부일정 삭제
-          if (existingPayments.length > 0) {
-            await api.delete(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
-          }
-        }
-      } catch (syncErr) {
-        console.error('납부일정 동기화 실패:', syncErr);
+      if (res.data && res.data.id) {
+        setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
       }
-
-      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
       setShowAddModal(false);
       setEditingMaintenanceId(null);
       setMaintenanceForm({ title: '', category: 'REPAIR', description: '', cost: '', paidBy: 'LANDLORD' });
@@ -640,20 +602,9 @@ export default function useContract() {
 
   const handleUpdateMaintenanceStatus = async (maintenanceId, status) => {
     try {
-      const res = await api.patch(`/api/maintenances/${maintenanceId}/status?status=${status}`);
-      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
-
-      // 완료 상태로 변경 시 연관된 납부일정도 납부완료 처리
-      if (status === 'COMPLETED') {
-        try {
-          const paymentsRes = await api.get(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
-          const payments = paymentsRes.data;
-          for (const payment of payments) {
-            await api.patch(`/api/payments/${payment.id}/status?status=PAID`);
-          }
-        } catch (syncErr) {
-          console.error('납부일정 상태 동기화 실패:', syncErr);
-        }
+      const res = await api.patch(`/maintenances/${maintenanceId}/status?status=${status}`);
+      if (res.data && res.data.id) {
+        setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
       }
     } catch (err) {
       alert('상태 변경에 실패했습니다.');
@@ -662,16 +613,9 @@ export default function useContract() {
   };
 
   const handleDeleteMaintenance = async (maintenanceId) => {
-    if (!window.confirm('이 유지보수 기록을 삭제하시겠습니까?\n관련 납부일정도 함께 삭제됩니다.')) return;
+    if (!window.confirm('이 유지보수 기록을 삭제하시겠습니까?')) return;
     try {
-      // 관련 납부일정 먼저 삭제
-      try {
-        await api.delete(`/api/payments/source/MAINTENANCE/${maintenanceId}`);
-      } catch (syncErr) {
-        console.error('납부일정 삭제 실패:', syncErr);
-      }
-      // 유지보수 기록 삭제
-      await api.delete(`/api/maintenances/${maintenanceId}`);
+      await api.delete(`/maintenances/${maintenanceId}`);
       setMaintenances(prev => prev.filter(item => item.id !== maintenanceId));
     } catch (err) {
       alert('삭제에 실패했습니다.');
@@ -680,23 +624,26 @@ export default function useContract() {
   };
 
   const handleMaintenanceFileUpload = async (maintenanceId, file) => {
+    setSubmitting(true);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', getSafeFile(file));
     try {
-      const res = await api.post(`/api/maintenances/${maintenanceId}/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+      const res = await api.post(`/maintenances/${maintenanceId}/upload`, formData);
+      if (res.data && res.data.id) {
+        setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+      }
     } catch (err) {
-      const message = err.response?.data?.message || '파일 업로드에 실패했습니다. (PDF, JPG, PNG만 가능)';
+      const message = err.response?.data?.message || '파일 업로드에 실패했습니다.';
       alert(message);
       console.error(err);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleMaintenanceFileDownload = async (maintenanceId, fileName) => {
     try {
-      const res = await api.get(`/api/maintenances/${maintenanceId}/download`, { responseType: 'blob' });
+      const res = await api.get(`/maintenances/${maintenanceId}/download`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -714,8 +661,10 @@ export default function useContract() {
   const handleMaintenanceFileDelete = async (maintenanceId) => {
     if (!window.confirm('첨부 파일을 삭제하시겠습니까?')) return;
     try {
-      const res = await api.delete(`/api/maintenances/${maintenanceId}/file`);
-      setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+      const res = await api.delete(`/maintenances/${maintenanceId}/file`);
+      if (res.data && res.data.id) {
+        setMaintenances(prev => prev.map(item => item.id === maintenanceId ? res.data : item));
+      }
     } catch (err) {
       alert('파일 삭제에 실패했습니다.');
       console.error(err);
@@ -761,10 +710,10 @@ export default function useContract() {
     showAddModal, modalType,
     handleCreateContract, handleUpdateContract, handleDeleteContract,
     openEditContractModal,
-    handleCreateDocument, handleDeleteDocument,
+    handleCreateDocument, handleDeleteDocumentFile,
     handleCreateSpecialTerm, handleDeleteSpecialTerm,
     handleToggleTermConfirm,
-    handleCreateChecklist, handleToggleChecklistComplete, handleDeleteChecklist,
+    handleCreateChecklist, handleToggleChecklistComplete, handleDeleteChecklistItem,
     handleChecklistFileUpload, handleChecklistFileDownload, handleChecklistFileDelete,
     handleCreateMoveOutChecklist,
     handleCreateMaintenance, handleUpdateMaintenance, handleUpdateMaintenanceStatus, handleDeleteMaintenance,

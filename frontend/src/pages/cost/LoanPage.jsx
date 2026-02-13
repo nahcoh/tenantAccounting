@@ -213,7 +213,7 @@ export default function LoanPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get('/api/loans/summary');
+      const response = await api.get('/loans/summary');
       setData(response.data);
     } catch (err) {
       if (err.response?.status === 404) {
@@ -295,7 +295,7 @@ export default function LoanPage() {
     }
     setSubmitting(true);
     try {
-      await api.post('/api/loans', {
+      await api.post('/loans', {
         name: form.name,
         type: form.type,
         principalAmount: Number(principalRaw),
@@ -314,10 +314,10 @@ export default function LoanPage() {
       if (form.syncToCalendar && monthlyRaw && Number(monthlyRaw) > 0) {
         const paymentDay = form.paymentDay ? Number(form.paymentDay) : 15;
         // 대출 ID를 가져오기 위해 다시 조회
-        const loansRes = await api.get('/api/loans/summary');
+        const loansRes = await api.get('/loans/summary');
         const newLoan = loansRes.data.loans?.find(l => l.name === form.name);
         if (newLoan) {
-          await api.post('/api/payments', {
+          await api.post('/payments', {
             name: `${form.name} 상환`,
             category: 'LOAN',
             amount: Number(monthlyRaw),
@@ -351,7 +351,7 @@ export default function LoanPage() {
     }
     setSubmitting(true);
     try {
-      await api.put(`/api/loans/${editingLoan.id}`, {
+      await api.put(`/loans/${editingLoan.id}`, {
         name: form.name,
         type: form.type,
         principalAmount: Number(principalRaw),
@@ -368,12 +368,12 @@ export default function LoanPage() {
 
       // 연관된 납부일정 업데이트
       try {
-        const paymentsRes = await api.get(`/api/payments/source/LOAN/${editingLoan.id}`);
+        const paymentsRes = await api.get(`/payments/source/LOAN/${editingLoan.id}`);
         const payments = paymentsRes.data;
         if (payments.length > 0) {
           const paymentDay = form.paymentDay ? Number(form.paymentDay) : 15;
           for (const payment of payments) {
-            await api.put(`/api/payments/${payment.id}`, {
+            await api.put(`/payments/${payment.id}`, {
               name: `${form.name} 상환`,
               category: 'LOAN',
               amount: monthlyRaw ? Number(monthlyRaw) : payment.amount,
@@ -401,9 +401,9 @@ export default function LoanPage() {
     if (!window.confirm('이 대출 정보를 삭제하시겠습니까?\n관련 납부일정도 함께 삭제됩니다.')) return;
     try {
       // 관련 납부일정 먼저 삭제
-      await api.delete(`/api/payments/source/LOAN/${id}`);
+      await api.delete(`/payments/source/LOAN/${id}`);
       // 대출 삭제
-      await api.delete(`/api/loans/${id}`);
+      await api.delete(`/loans/${id}`);
       await fetchData();
     } catch (err) {
       alert('삭제에 실패했습니다.');

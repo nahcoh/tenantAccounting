@@ -19,11 +19,13 @@ import DuringLayout from './pages/during/DuringLayout';
 import MaintenancePage from './pages/during/MaintenancePage';
 import AfterLayout from './pages/after/AfterLayout';
 import ChecklistPage from './pages/after/ChecklistPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 
 // RootRoute: 실시간 토큰 및 도메인 체크
 const RootRoute = () => {
   const token = localStorage.getItem('accessToken');
-  const isAuthenticated = token && token !== 'undefined' && token !== 'null';
+  const isAuthenticated = !!(token && token !== 'undefined' && token !== 'null');
   
   console.log('[RootRoute] Check:', { isAuthenticated, token: token ? 'exists' : 'missing' });
 
@@ -38,35 +40,48 @@ const RootRoute = () => {
 };
 
 function App() {
-  // URL에서 토큰 정보를 더 강력하게 가로채기
-  React.useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    
-    // 가능한 모든 토큰 이름 체크
-    const accessToken = searchParams.get('accessToken') || hashParams.get('accessToken') || 
-                        searchParams.get('token') || hashParams.get('token');
-    const refreshToken = searchParams.get('refreshToken') || hashParams.get('refreshToken') ||
-                         searchParams.get('refresh_token') || hashParams.get('refresh_token');
+  // 0. 도메인 통일
+  if (window.location.hostname === 'www.ziplog.kr') {
+    window.location.href = window.location.href.replace('www.ziplog.kr', 'ziplog.kr');
+    return <div className="p-10 text-center">도메인 전환 중...</div>;
+  }
 
-    console.log('[App] Current URL:', window.location.href);
-    console.log('[App] URL Parameters:', Object.fromEntries(searchParams.entries()));
-    console.log('[App] Hash Parameters:', Object.fromEntries(hashParams.entries()));
+  // 1. URL에서 토큰 추출 및 즉시 저장 (동기적 처리)
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.substring(1));
 
-    if (accessToken) {
-      console.log('[App] Found access token! Saving to localStorage...');
-      localStorage.setItem('accessToken', accessToken);
-      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-      
-      // 토큰 정보를 지우고 깨끗한 메인 페이지로 이동 (리프레시)
-      window.location.href = '/';
+  const accessToken = params.get('accessToken') || hashParams.get('accessToken') ||
+                      params.get('token') || hashParams.get('access_token');
+  const refreshToken = params.get('refreshToken') || hashParams.get('refreshToken') ||
+                       params.get('refresh_token');
+
+  // 토큰이 URL에 있으면 즉시 동기적으로 저장
+  if (accessToken) {
+    console.log('[App] Token found in URL, saving immediately...');
+    localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
     }
-  }, []);
+    // URL에서 토큰 파라미터 제거하고 메인으로 이동
+    window.location.replace('/');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-slate-800">로그인 정보를 확인 중입니다...</h2>
+          <p className="text-slate-500 text-sm mt-2">잠시만 기다려 주세요.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
       <Route path="/" element={<RootRoute />} />
       <Route path="/auth" element={<TenantAuth />} />
+      <Route path="/terms" element={<TermsOfServicePage />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
+      {/* OAuth2 콜백 처리 - URL 파라미터에서 토큰 추출 후 저장 */}
       <Route path="/oauth/redirect" element={<OAuth2RedirectHandler />} />
 
         {/* 인증이 필요한 모든 경로를 하나로 묶음 */}

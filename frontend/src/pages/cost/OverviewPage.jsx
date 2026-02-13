@@ -29,7 +29,7 @@ export default function OverviewPage() {
       setLoading(true);
       setError(null);
       try {
-        const response = await api.get(`/api/payments/overview/${year}/${month}`);
+        const response = await api.get(`/payments/overview/${year}/${month}`);
         setData(response.data);
       } catch (err) {
         setError('데이터를 불러오는 데 실패했습니다.');

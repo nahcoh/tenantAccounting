@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import api from '../../api';
 
 const MOVE_OUT_CATEGORIES = [
   { id: 'DEPOSIT_RETURN', label: '보증금 반환' },
@@ -10,6 +11,7 @@ const MOVE_OUT_CATEGORIES = [
 ];
 
 export default function ChecklistPage() {
+  console.log('[ChecklistPage] Rendering version 1.2 with unified names');
   const ctx = useOutletContext();
   const {
     contract,
@@ -18,11 +20,10 @@ export default function ChecklistPage() {
     submitting,
     moveOutChecklistForm,
     setMoveOutChecklistForm,
-    checklistFileInputRefs,
     showAddModal,
     modalType,
     handleToggleChecklistComplete,
-    handleDeleteChecklist,
+    handleDeleteChecklistItem,
     handleChecklistFileUpload,
     handleChecklistFileDownload,
     handleChecklistFileDelete,
@@ -30,9 +31,6 @@ export default function ChecklistPage() {
     openAddModal,
     closeModal,
   } = ctx;
-
-  const localFileInputRefs = useRef({});
-  const fileRefs = checklistFileInputRefs || localFileInputRefs;
 
   if (!contract) {
     return (
@@ -67,7 +65,6 @@ export default function ChecklistPage() {
 
   return (
     <div className="space-y-6">
-      {/* 헤더 및 진행률 */}
       <div className="bg-white rounded-xl border border-gray-100 p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-gray-900">퇴거 체크리스트</h3>
@@ -109,101 +106,16 @@ export default function ChecklistPage() {
             <div key={cat.id} className="space-y-2">
               <h4 className="text-sm font-medium text-gray-700 px-1">{cat.label}</h4>
               {items.map(item => (
-                <div
+                <ChecklistItem
                   key={item.id}
-                  className={`bg-white rounded-xl border p-4 transition-all ${
-                    item.isCompleted ? 'border-green-200 bg-green-50/30' : 'border-gray-100'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* 체크박스 */}
-                    <button
-                      onClick={() => handleToggleChecklistComplete(item.id)}
-                      className={`flex-shrink-0 mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                        item.isCompleted
-                          ? 'bg-green-500 border-green-500 text-white'
-                          : 'border-gray-300 hover:border-orange-400'
-                      }`}
-                    >
-                      {item.isCompleted && (
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                    </button>
-
-                    {/* 내용 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-medium ${item.isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
-                          {item.title}
-                        </span>
-                        {item.isRequired && (
-                          <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded">필수</span>
-                        )}
-                      </div>
-                      {item.description && (
-                        <p className={`text-sm mt-1 ${item.isCompleted ? 'text-gray-400' : 'text-gray-500'}`}>
-                          {item.description}
-                        </p>
-                      )}
-
-                      {/* 파일 첨부 영역 */}
-                      <div className="mt-2 flex items-center gap-2 flex-wrap">
-                        {item.fileName ? (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600 truncate max-w-[200px]">{item.fileName}</span>
-                            <button
-                              onClick={() => handleChecklistFileDownload(item.id, item.fileName)}
-                              className="text-blue-600 hover:text-blue-700"
-                            >
-                              다운로드
-                            </button>
-                            <button
-                              onClick={() => handleChecklistFileDelete(item.id)}
-                              className="text-red-500 hover:text-red-600"
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <input
-                              type="file"
-                              ref={el => fileRefs.current[item.id] = el}
-                              onChange={(e) => {
-                                if (e.target.files[0]) {
-                                  handleChecklistFileUpload(item.id, e.target.files[0]);
-                                }
-                              }}
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              className="hidden"
-                            />
-                            <button
-                              onClick={() => fileRefs.current[item.id]?.click()}
-                              className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                              </svg>
-                              파일 첨부
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 삭제 버튼 */}
-                    <button
-                      onClick={() => handleDeleteChecklist(item.id)}
-                      className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
+                  item={item}
+                  onToggle={handleToggleChecklistComplete}
+                  onDelete={handleDeleteChecklistItem}
+                  onFileUpload={handleChecklistFileUpload}
+                  onFileDownload={handleChecklistFileDownload}
+                  onFileDelete={handleChecklistFileDelete}
+                  submitting={submitting}
+                />
               ))}
             </div>
           );
@@ -212,8 +124,8 @@ export default function ChecklistPage() {
 
       {/* 항목 추가 모달 */}
       {showAddModal && modalType === 'moveOutChecklist' && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeModal}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900">퇴거 체크리스트 항목 추가</h3>
 
             <div className="space-y-4">
@@ -281,6 +193,148 @@ export default function ChecklistPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ChecklistItem({ item, onToggle, onDelete, onFileUpload, onFileDownload, onFileDelete, submitting }) {
+  const fileInputRef = useRef(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    let url = null;
+    const fetchPreview = async () => {
+      if (item.id && item.fileName && /\.(jpg|jpeg|png|gif|webp)$/i.test(item.fileName)) {
+        try {
+          const res = await api.get(`/checklists/${item.id}/preview`, { responseType: 'blob' });
+          url = window.URL.createObjectURL(new Blob([res.data]));
+          setPreviewUrl(url);
+        } catch (err) {
+          console.error('Preview load failed:', err);
+        }
+      } else {
+        setPreviewUrl(null);
+      }
+    };
+
+    fetchPreview();
+
+    return () => {
+      if (url) window.URL.revokeObjectURL(url);
+    };
+  }, [item.id, item.fileName]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      onFileUpload(item.id, file);
+      e.target.value = '';
+    }
+  };
+
+  return (
+    <div
+      className={`bg-white rounded-xl border p-4 transition-all ${
+        item.isCompleted ? 'border-green-200 bg-green-50/30' : 'border-gray-100'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {/* 체크박스 */}
+        <button
+          onClick={() => onToggle(item.id)}
+          className={`flex-shrink-0 mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+            item.isCompleted
+              ? 'bg-green-500 border-green-500 text-white'
+              : 'border-gray-300 hover:border-orange-400'
+          }`}
+        >
+          {item.isCompleted && (
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          )}
+        </button>
+
+        {/* 내용 */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`font-medium ${item.isCompleted ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+              {item.title}
+            </span>
+            {item.isRequired && (
+              <span className="px-1.5 py-0.5 bg-red-100 text-red-600 text-xs rounded">필수</span>
+            )}
+          </div>
+          {item.description && (
+            <p className={`text-sm mt-1 ${item.isCompleted ? 'text-gray-400' : 'text-gray-500'}`}>
+              {item.description}
+            </p>
+          )}
+
+          {/* 파일 및 미리보기 영역 */}
+          <div className="mt-3 space-y-2">
+            {item.fileName ? (
+              <div className="flex flex-col gap-2">
+                {previewUrl && (
+                  <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                    <img src={previewUrl} alt="미리보기" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-600 font-medium truncate max-w-[200px]">{item.fileName}</span>
+                  <button
+                    onClick={() => onFileDownload(item.id, item.fileName)}
+                    className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                  >
+                    다운로드
+                  </button>
+                  <button
+                    onClick={() => onFileDelete(item.id)}
+                    disabled={submitting}
+                    className="text-red-500 hover:text-red-600 text-xs font-medium disabled:opacity-50"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={submitting}
+                  className="text-sm text-gray-500 hover:text-orange-600 flex items-center gap-1 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  {submitting ? '업로드 중...' : '파일 첨부'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 삭제 버튼 */}
+        <button
+          onClick={() => {
+            console.log('[ChecklistItem] Delete clicked for item:', item.id);
+            if (item.id) onDelete(item.id);
+            else console.error('[ChecklistItem] item.id is missing');
+          }}
+          className="flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

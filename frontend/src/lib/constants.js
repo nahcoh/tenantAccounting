@@ -47,7 +47,6 @@ export const CONTRACT_PHASES = [
   { id: 'PRE_CONTRACT', label: '계약전', icon: '📋' },
   { id: 'ON_CONTRACT', label: '계약 시', icon: '✍️' },
   { id: 'POST_CONTRACT', label: '계약 후', icon: '🏠' },
-  { id: 'MOVE_OUT', label: '퇴거', icon: '📦' },
 ];
 
 // 필수 서류 목록 (기본 표시용)

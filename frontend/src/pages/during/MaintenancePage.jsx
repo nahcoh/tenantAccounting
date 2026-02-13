@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { getStatusStyle } from '../../lib/utils';
 import { MAINTENANCE_CATEGORY_LABELS, PAID_BY_LABELS } from '../../lib/constants';
+import api from '../../api';
 
 function StatusBadge({ status }) {
   const { className, label } = getStatusStyle(status);
@@ -25,7 +26,7 @@ export default function MaintenancePage() {
     maintenances, maintenancesLoading, openAddModal, contract,
     handleUpdateMaintenanceStatus, handleDeleteMaintenance,
     handleMaintenanceFileUpload, handleMaintenanceFileDownload, handleMaintenanceFileDelete,
-    openEditMaintenanceModal,
+    openEditMaintenanceModal, submitting
   } = useOutletContext();
 
   if (!contract) {
@@ -94,6 +95,7 @@ export default function MaintenancePage() {
               onFileUpload={handleMaintenanceFileUpload}
               onFileDownload={handleMaintenanceFileDownload}
               onFileDelete={handleMaintenanceFileDelete}
+              submitting={submitting}
             />
           ))}
           <button
@@ -108,8 +110,32 @@ export default function MaintenancePage() {
   );
 }
 
-function MaintenanceItem({ record, onUpdateStatus, onDelete, onEdit, onFileUpload, onFileDownload, onFileDelete }) {
+function MaintenanceItem({ record, onUpdateStatus, onDelete, onEdit, onFileUpload, onFileDownload, onFileDelete, submitting }) {
   const fileInputRef = useRef(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    let url = null;
+    const fetchPreview = async () => {
+      if (record.id && record.fileName && /\.(jpg|jpeg|png|gif|webp)$/i.test(record.fileName)) {
+        try {
+          const res = await api.get(`/maintenances/${record.id}/preview`, { responseType: 'blob' });
+          url = window.URL.createObjectURL(new Blob([res.data]));
+          setPreviewUrl(url);
+        } catch (err) {
+          console.error('Preview load failed:', err);
+        }
+      } else {
+        setPreviewUrl(null);
+      }
+    };
+
+    fetchPreview();
+
+    return () => {
+      if (url) window.URL.revokeObjectURL(url);
+    };
+  }, [record.id, record.fileName]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -167,29 +193,37 @@ function MaintenanceItem({ record, onUpdateStatus, onDelete, onEdit, onFileUploa
               )}
             </div>
 
-            {/* 파일 첨부 */}
-            <div className="mt-3 flex items-center gap-2 flex-wrap">
+            {/* 파일 첨부 및 미리보기 */}
+            <div className="mt-3 space-y-2">
               {record.fileName ? (
-                <>
-                  <button
-                    onClick={() => onFileDownload(record.id, record.fileName)}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs hover:bg-blue-100 transition-colors"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
-                    {record.fileName}
-                  </button>
-                  <button
-                    onClick={() => onFileDelete(record.id)}
-                    className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                    title="파일 삭제"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </>
+                <div className="flex flex-col gap-2">
+                  {previewUrl && (
+                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                      <img src={previewUrl} alt="미리보기" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-sm">
+                    <button
+                      onClick={() => onFileDownload(record.id, record.fileName)}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs hover:bg-blue-100 transition-colors font-medium"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                      {record.fileName}
+                    </button>
+                    <button
+                      onClick={() => onFileDelete(record.id)}
+                      disabled={submitting}
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                      title="파일 삭제"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <>
                   <input
@@ -201,12 +235,13 @@ function MaintenanceItem({ record, onUpdateStatus, onDelete, onEdit, onFileUploa
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-gray-500 border border-dashed border-gray-300 rounded text-xs hover:border-green-400 hover:text-green-600 transition-colors"
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-gray-500 border border-dashed border-gray-300 rounded text-xs hover:border-green-400 hover:text-green-600 transition-colors disabled:opacity-50 font-medium"
                   >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    사진 첨부
+                    {submitting ? '업로드 중...' : '사진 첨부'}
                   </button>
                 </>
               )}
