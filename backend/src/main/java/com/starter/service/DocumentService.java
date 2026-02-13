@@ -51,6 +51,7 @@ public class DocumentService {
         document.setContract(contract);
         document.setName(request.getName());
         document.setCategory(request.getCategory());
+        document.setPhase(request.getPhase());
         document.setFilePath(request.getFilePath() != null ? request.getFilePath() : "");
         document.setIsRequired(request.getIsRequired());
 
@@ -62,6 +63,7 @@ public class DocumentService {
         Document document = getDocumentAndVerifyOwner(userId, documentId);
         document.setName(request.getName());
         document.setCategory(request.getCategory());
+        document.setPhase(request.getPhase());
         if (request.getFilePath() != null) {
             document.setFilePath(request.getFilePath());
         }
@@ -140,6 +142,7 @@ public class DocumentService {
         response.setId(document.getId());
         response.setName(document.getName());
         response.setCategory(document.getCategory());
+        response.setPhase(document.getPhase());
         response.setFilePath(document.getFilePath());
         response.setFileName(document.getFileName());
         response.setIsRequired(document.getIsRequired());

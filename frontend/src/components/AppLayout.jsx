@@ -141,6 +141,8 @@ export default function AppLayout() {
         maintenanceForm={contractData.maintenanceForm}
         setMaintenanceForm={contractData.setMaintenanceForm}
         handleCreateMaintenance={contractData.handleCreateMaintenance}
+        handleUpdateMaintenance={contractData.handleUpdateMaintenance}
+        editingMaintenanceId={contractData.editingMaintenanceId}
       />
     </div>
   );
