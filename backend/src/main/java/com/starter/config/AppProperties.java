@@ -16,6 +16,8 @@ public class AppProperties {
     @Getter
     @Setter
     public static class OAuth2 {
+
+
         private String authorizedRedirectUri;
     }
 }
