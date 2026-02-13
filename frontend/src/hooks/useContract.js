@@ -543,7 +543,7 @@ export default function useContract() {
     if (!maintenanceForm.title) { alert('제목을 입력해주세요.'); return; }
     setSubmitting(true);
     try {
-      const maintenanceRes = await api.post(`/contracts/${contract.id}/maintenances`, {
+      await api.post(`/contracts/${contract.id}/maintenances`, {
         title: maintenanceForm.title,
         category: maintenanceForm.category,
         description: maintenanceForm.description,

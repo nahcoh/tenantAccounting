@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api';
 
 const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
@@ -40,7 +40,7 @@ export default function UtilitiesPage() {
 
   const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -56,11 +56,11 @@ export default function UtilitiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [yearMonth]);
 
   useEffect(() => {
     fetchData();
-  }, [year, month]);
+  }, [fetchData]);
 
   const prevMonth = () => {
     if (month === 1) { setMonth(12); setYear(year - 1); }

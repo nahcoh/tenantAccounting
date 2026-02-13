@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api';
 import { getCategoryIcon, getStatusStyle } from '../../lib/utils';
 
@@ -57,7 +57,7 @@ export default function CalendarPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
-  const fetchCalendarData = async () => {
+  const fetchCalendarData = useCallback(async () => {
     setCalendarLoading(true);
     setError(null);
     try {
@@ -72,11 +72,11 @@ export default function CalendarPage() {
     } finally {
       setCalendarLoading(false);
     }
-  };
+  }, [calendarYear, calendarMonth]);
 
   useEffect(() => {
     fetchCalendarData();
-  }, [calendarYear, calendarMonth]);
+  }, [fetchCalendarData]);
 
   // 모달이 열려있을 때 선택된 날짜의 납부 내역 업데이트
   useEffect(() => {
@@ -86,7 +86,7 @@ export default function CalendarPage() {
         setSelectedDate(prev => ({ ...prev, payments: updatedPayments }));
       }
     }
-  }, [calendarData]);
+  }, [showModal, selectedDate, calendarData]);
 
   const handleDateClick = (dayInfo) => {
     if (!dayInfo.isCurrentMonth) return;

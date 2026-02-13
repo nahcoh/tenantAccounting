@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import TenantAuth from './TenantAuth';
 import OAuth2RedirectHandler from './OAuth2RedirectHandler';
 import PrivateRoute from './components/PrivateRoute';

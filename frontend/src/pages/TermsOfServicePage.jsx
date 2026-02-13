@@ -20,7 +20,7 @@ export default function TermsOfServicePage() {
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">제1조 (목적)</h2>
               <p>
-                이 약관은 내 집 기록(이하 "서비스")이 제공하는 주거 관리 서비스의 이용조건 및 절차,
+                이 약관은 내 집 기록(이하 &quot;서비스&quot;)이 제공하는 주거 관리 서비스의 이용조건 및 절차,
                 서비스 제공자와 이용자의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.
               </p>
             </section>
@@ -28,9 +28,9 @@ export default function TermsOfServicePage() {
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">제2조 (정의)</h2>
               <ol className="list-decimal pl-5 space-y-2">
-                <li>"서비스"란 회사가 제공하는 세입자 주거 관리 관련 제반 서비스를 의미합니다.</li>
-                <li>"이용자"란 이 약관에 따라 서비스를 이용하는 회원을 의미합니다.</li>
-                <li>"회원"이란 서비스에 개인정보를 제공하여 회원등록을 한 자로서, 서비스를 이용할 수 있는 자를 의미합니다.</li>
+                <li>&quot;서비스&quot;란 회사가 제공하는 세입자 주거 관리 관련 제반 서비스를 의미합니다.</li>
+                <li>&quot;이용자&quot;란 이 약관에 따라 서비스를 이용하는 회원을 의미합니다.</li>
+                <li>&quot;회원&quot;이란 서비스에 개인정보를 제공하여 회원등록을 한 자로서, 서비스를 이용할 수 있는 자를 의미합니다.</li>
               </ol>
             </section>
 
