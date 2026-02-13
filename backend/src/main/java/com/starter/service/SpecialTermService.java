@@ -49,6 +49,7 @@ public class SpecialTermService {
         SpecialTerm term = new SpecialTerm();
         term.setContract(contract);
         term.setCategory(request.getCategory());
+        term.setPhase(request.getPhase());
         term.setContent(request.getContent());
         term.setIsConfirmed(false);
 
@@ -59,6 +60,7 @@ public class SpecialTermService {
     public SpecialTermResponse updateSpecialTerm(Long userId, Long termId, SpecialTermCreateRequest request) {
         SpecialTerm term = getTermAndVerifyOwner(userId, termId);
         term.setCategory(request.getCategory());
+        term.setPhase(request.getPhase());
         term.setContent(request.getContent());
         return toResponse(specialTermRepository.save(term));
     }
@@ -140,6 +142,7 @@ public class SpecialTermService {
         response.setId(term.getId());
         response.setContractId(term.getContract().getId());
         response.setCategory(term.getCategory());
+        response.setPhase(term.getPhase());
         response.setContent(term.getContent());
         response.setFilePath(term.getFilePath());
         response.setFileName(term.getFileName());
