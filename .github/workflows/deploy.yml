@@ -124,13 +124,14 @@ jobs:
             echo "APP_COMMIT_SHA=$GITHUB_SHA" >> .env
 
             mkdir -p backups
-            if docker ps --format '{{.Names}}' | grep -q '^ziplog-mysql$'; then
+            mysql_container_id=$(docker compose -f docker-compose.prod.yml ps -q mysql | head -n1)
+            if [ -n "$mysql_container_id" ]; then
               ts=$(date +%Y%m%d_%H%M%S)
-              docker exec ziplog-mysql sh -lc "mysqldump -uroot -p\"$MYSQL_ROOT_PASSWORD\" \"$MYSQL_DATABASE\"" > "backups/mysql_${ts}.sql"
+              docker exec "$mysql_container_id" sh -lc "mysqldump -uroot -p\"$MYSQL_ROOT_PASSWORD\" \"$MYSQL_DATABASE\"" > "backups/mysql_${ts}.sql"
               find backups -type f -name 'mysql_*.sql' -mtime +7 -delete || true
               echo "Database backup created: backups/mysql_${ts}.sql"
             else
-              echo "ziplog-mysql not running, skip backup step"
+              echo "mysql container not running, skip backup step"
             fi
 
             docker compose -f docker-compose.prod.yml down --remove-orphans || true
