@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -84,13 +86,29 @@ public class AuthController {
     }
 
     @GetMapping("/auth/me")
-    public ResponseEntity<Map<String, String>> me(@AuthenticationPrincipal UserPrincipal principal) {
-        if (principal == null) {
+    public ResponseEntity<Map<String, String>> me(Authentication authentication) {
+        if (authentication == null || authentication.getPrincipal() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserPrincipal userPrincipal) {
+            return ResponseEntity.ok(Map.of(
+                    "email", userPrincipal.getEmail(),
+                    "name", userPrincipal.getDisplayName()
+            ));
+        }
+
+        if (principal instanceof UserDetails userDetails) {
+            return ResponseEntity.ok(Map.of(
+                    "email", userDetails.getUsername(),
+                    "name", userDetails.getUsername()
+            ));
+        }
+
         return ResponseEntity.ok(Map.of(
-                "email", principal.getEmail(),
-                "name", principal.getDisplayName()
+                "email", principal.toString(),
+                "name", principal.toString()
         ));
     }
 
