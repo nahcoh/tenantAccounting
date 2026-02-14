@@ -144,7 +144,8 @@ public class ChecklistService {
             checklist.setFileName(originalName);
             return toResponse(checklistRepository.save(checklist));
         } catch (Exception e) {
-            log.error("Checklist file upload failed - checklistId={}, originalName={}", checklistId, originalName, e);
+            log.error("Checklist file upload failed - checklistId={}, originalName={}, s3Enabled={}, rawBucket={}",
+                    checklistId, originalName, s3Enabled, s3Bucket, e);
             throw new RuntimeException("파일 저장에 실패했습니다.", e);
         }
     }
@@ -194,17 +195,15 @@ public class ChecklistService {
 
     private String storeFile(Long checklistId, String storedName, MultipartFile file) throws IOException {
         if (s3Enabled) {
-            if (s3Bucket == null || s3Bucket.isBlank()) {
-                throw new IllegalStateException("storage.s3.enabled=true 인데 storage.s3.bucket 값이 비어 있습니다.");
-            }
-            String key = s3Prefix + "/" + checklistId + "/" + storedName;
+            String bucket = normalizeBucketName(s3Bucket);
+            String key = normalizePrefix(s3Prefix) + "/" + checklistId + "/" + storedName;
             PutObjectRequest request = PutObjectRequest.builder()
-                    .bucket(s3Bucket)
+                    .bucket(bucket)
                     .key(key)
                     .contentType(file.getContentType())
                     .build();
             s3Client().putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
-            return "s3://" + s3Bucket + "/" + key;
+            return "s3://" + bucket + "/" + key;
         }
 
         Path dir = Paths.get(uploadDir, "checklists", checklistId.toString());
@@ -239,6 +238,38 @@ public class ChecklistService {
 
     private boolean isS3Path(String path) {
         return path != null && path.startsWith("s3://");
+    }
+
+    private String normalizeBucketName(String rawBucket) {
+        if (rawBucket == null || rawBucket.isBlank()) {
+            throw new IllegalStateException("storage.s3.enabled=true 인데 storage.s3.bucket 값이 비어 있습니다.");
+        }
+        String bucket = rawBucket.trim();
+        bucket = bucket.replaceFirst("^s3://", "");
+        bucket = bucket.replaceFirst("^https?://", "");
+        int slashIndex = bucket.indexOf('/');
+        if (slashIndex > 0) {
+            bucket = bucket.substring(0, slashIndex);
+        }
+
+        if (!bucket.matches("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$")) {
+            throw new IllegalStateException("유효하지 않은 S3 버킷명입니다: " + bucket);
+        }
+        return bucket;
+    }
+
+    private String normalizePrefix(String prefix) {
+        if (prefix == null || prefix.isBlank()) {
+            return "checklists";
+        }
+        String normalized = prefix.trim();
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized.isBlank() ? "checklists" : normalized;
     }
 
     private S3Client s3Client() {
