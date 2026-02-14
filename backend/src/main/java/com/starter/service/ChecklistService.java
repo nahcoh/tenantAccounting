@@ -10,12 +10,23 @@ import com.starter.repository.ChecklistRepository;
 import com.starter.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -37,9 +48,19 @@ public class ChecklistService {
 
     private final ChecklistRepository checklistRepository;
     private final ContractRepository contractRepository;
+    private final ObjectProvider<S3Client> s3ClientProvider;
 
     @Value("${file.upload-dir:./uploads}")
     private String uploadDir;
+
+    @Value("${storage.s3.enabled:false}")
+    private boolean s3Enabled;
+
+    @Value("${storage.s3.bucket:}")
+    private String s3Bucket;
+
+    @Value("${storage.s3.prefix:checklists}")
+    private String s3Prefix;
 
     private static final List<String> ALLOWED_EXTENSIONS = Arrays.asList(".pdf", ".jpg", ".jpeg", ".png");
 
@@ -96,12 +117,7 @@ public class ChecklistService {
     @Transactional
     public void deleteChecklist(Long userId, Long checklistId) {
         Checklist checklist = getChecklistAndVerifyOwner(userId, checklistId);
-        // 파일 삭제
-        if (checklist.getFilePath() != null && !checklist.getFilePath().isBlank()) {
-            try {
-                Files.deleteIfExists(Paths.get(checklist.getFilePath()));
-            } catch (IOException ignored) {}
-        }
+        deleteStoredFile(checklist.getFilePath());
         checklistRepository.delete(checklist);
     }
 
@@ -120,19 +136,11 @@ public class ChecklistService {
         }
 
         try {
-            Path dir = Paths.get(uploadDir, "checklists", checklistId.toString());
-            Files.createDirectories(dir);
-
-            // 기존 파일 삭제
-            if (checklist.getFilePath() != null && !checklist.getFilePath().isBlank()) {
-                Files.deleteIfExists(Paths.get(checklist.getFilePath()));
-            }
-
             String storedName = UUID.randomUUID() + ext;
-            Path filePath = dir.resolve(storedName);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            String newFilePath = storeFile(checklistId, storedName, file);
+            deleteStoredFile(checklist.getFilePath());
 
-            checklist.setFilePath(filePath.toString());
+            checklist.setFilePath(newFilePath);
             checklist.setFileName(originalName);
             return toResponse(checklistRepository.save(checklist));
         } catch (IOException e) {
@@ -146,12 +154,29 @@ public class ChecklistService {
             throw new IllegalArgumentException("첨부된 파일이 없습니다.");
         }
         try {
+            if (isS3Path(checklist.getFilePath())) {
+                S3Location location = parseS3Path(checklist.getFilePath());
+                ResponseBytes<GetObjectResponse> bytes = s3Client().getObjectAsBytes(
+                        GetObjectRequest.builder().bucket(location.bucket()).key(location.key()).build()
+                );
+                String fileName = checklist.getFileName() != null ? checklist.getFileName() : location.fileName();
+                return new ByteArrayResource(bytes.asByteArray()) {
+                    @Override
+                    public String getFilename() {
+                        return fileName;
+                    }
+                };
+            }
             Path filePath = Paths.get(checklist.getFilePath());
             Resource resource = new UrlResource(filePath.toUri());
             if (!resource.exists()) {
                 throw new IllegalArgumentException("파일을 찾을 수 없습니다.");
             }
             return resource;
+        } catch (NoSuchKeyException e) {
+            throw new IllegalArgumentException("파일을 찾을 수 없습니다.");
+        } catch (S3Exception e) {
+            throw new RuntimeException("파일 다운로드에 실패했습니다.", e);
         } catch (MalformedURLException e) {
             throw new RuntimeException("파일 경로 오류", e);
         }
@@ -160,14 +185,85 @@ public class ChecklistService {
     @Transactional
     public ChecklistResponse deleteFile(Long userId, Long checklistId) {
         Checklist checklist = getChecklistAndVerifyOwner(userId, checklistId);
-        if (checklist.getFilePath() != null && !checklist.getFilePath().isBlank()) {
-            try {
-                Files.deleteIfExists(Paths.get(checklist.getFilePath()));
-            } catch (IOException ignored) {}
-        }
+        deleteStoredFile(checklist.getFilePath());
         checklist.setFilePath(null);
         checklist.setFileName(null);
         return toResponse(checklistRepository.save(checklist));
+    }
+
+    private String storeFile(Long checklistId, String storedName, MultipartFile file) throws IOException {
+        if (s3Enabled) {
+            if (s3Bucket == null || s3Bucket.isBlank()) {
+                throw new IllegalStateException("storage.s3.enabled=true 인데 storage.s3.bucket 값이 비어 있습니다.");
+            }
+            String key = s3Prefix + "/" + checklistId + "/" + storedName;
+            PutObjectRequest request = PutObjectRequest.builder()
+                    .bucket(s3Bucket)
+                    .key(key)
+                    .contentType(file.getContentType())
+                    .build();
+            s3Client().putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+            return "s3://" + s3Bucket + "/" + key;
+        }
+
+        Path dir = Paths.get(uploadDir, "checklists", checklistId.toString());
+        Files.createDirectories(dir);
+        Path filePath = dir.resolve(storedName);
+        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+        return filePath.toString();
+    }
+
+    private void deleteStoredFile(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return;
+        }
+        if (isS3Path(filePath)) {
+            S3Location location = parseS3Path(filePath);
+            try {
+                s3Client().deleteObject(DeleteObjectRequest.builder()
+                        .bucket(location.bucket())
+                        .key(location.key())
+                        .build());
+            } catch (S3Exception e) {
+                log.warn("Failed to delete S3 object: {}", filePath, e);
+            }
+            return;
+        }
+        try {
+            Files.deleteIfExists(Paths.get(filePath));
+        } catch (IOException e) {
+            log.warn("Failed to delete local file: {}", filePath, e);
+        }
+    }
+
+    private boolean isS3Path(String path) {
+        return path != null && path.startsWith("s3://");
+    }
+
+    private S3Client s3Client() {
+        S3Client client = s3ClientProvider.getIfAvailable();
+        if (client == null) {
+            throw new IllegalStateException("S3Client 빈이 없습니다. storage.s3.enabled 또는 AWS 설정을 확인하세요.");
+        }
+        return client;
+    }
+
+    private S3Location parseS3Path(String path) {
+        String raw = path.substring("s3://".length());
+        int slash = raw.indexOf('/');
+        if (slash <= 0 || slash == raw.length() - 1) {
+            throw new IllegalArgumentException("잘못된 S3 파일 경로입니다.");
+        }
+        String bucket = raw.substring(0, slash);
+        String key = raw.substring(slash + 1);
+        return new S3Location(bucket, key);
+    }
+
+    private record S3Location(String bucket, String key) {
+        String fileName() {
+            int idx = key.lastIndexOf('/');
+            return idx >= 0 ? key.substring(idx + 1) : key;
+        }
     }
 
     @Transactional

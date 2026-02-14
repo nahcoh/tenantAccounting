@@ -92,6 +92,13 @@ sentry:
 file:
   upload-dir: ${FILE_UPLOAD_DIR:./uploads}
 
+storage:
+  s3:
+    enabled: ${STORAGE_S3_ENABLED:false}
+    bucket: ${AWS_S3_BUCKET:}
+    region: ${AWS_REGION:ap-northeast-2}
+    prefix: ${AWS_S3_PREFIX:checklists}
+
 app:
   oauth2:
     authorized-redirect-uri: ${OAUTH2_REDIRECT_URI:https://ziplog.kr/oauth/redirect}
