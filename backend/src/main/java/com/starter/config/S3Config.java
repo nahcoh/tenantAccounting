@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 
 @Configuration
 public class S3Config {
@@ -15,6 +16,9 @@ public class S3Config {
     public S3Client s3Client(@Value("${storage.s3.region:ap-northeast-2}") String region) {
         return S3Client.builder()
                 .region(Region.of(region))
+                .serviceConfiguration(S3Configuration.builder()
+                        .pathStyleAccessEnabled(true)
+                        .build())
                 .build();
     }
 }
