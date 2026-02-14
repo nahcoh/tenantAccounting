@@ -123,12 +123,31 @@ jobs:
             echo "SPRING_JPA_HIBERNATE_DDL_AUTO=update" >> .env
             echo "APP_COMMIT_SHA=$GITHUB_SHA" >> .env
 
+            mkdir -p backups
+            if docker ps --format '{{.Names}}' | grep -q '^ziplog-mysql$'; then
+              ts=$(date +%Y%m%d_%H%M%S)
+              docker exec ziplog-mysql sh -lc "mysqldump -uroot -p\"$MYSQL_ROOT_PASSWORD\" \"$MYSQL_DATABASE\"" > "backups/mysql_${ts}.sql"
+              find backups -type f -name 'mysql_*.sql' -mtime +7 -delete || true
+              echo "Database backup created: backups/mysql_${ts}.sql"
+            else
+              echo "ziplog-mysql not running, skip backup step"
+            fi
+
             docker compose -f docker-compose.prod.yml down --remove-orphans || true
             docker compose -f docker-compose.prod.yml up -d --build --force-recreate --remove-orphans
 
-            for i in $(seq 1 24); do
-              status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' ziplog-backend 2>/dev/null || echo missing)
-              echo "backend status: $status (attempt $i/24)"
+            backend_container_id=$(docker compose -f docker-compose.prod.yml ps -q backend | head -n1)
+            if [ -z "$backend_container_id" ]; then
+              echo "Backend container id not found"
+              docker compose -f docker-compose.prod.yml ps || true
+              docker compose -f docker-compose.prod.yml logs backend --tail=200 || true
+              exit 1
+            fi
+
+            for i in $(seq 1 40); do
+              status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$backend_container_id" 2>/dev/null || echo missing)
+              [ -z "$status" ] && status=missing
+              echo "backend status: $status (attempt $i/40)"
 
               if [ "$status" = "healthy" ] || [ "$status" = "running" ]; then
                 break
@@ -143,14 +162,15 @@ jobs:
               sleep 5
             done
 
-            final_status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' ziplog-backend 2>/dev/null || echo missing)
+            final_status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$backend_container_id" 2>/dev/null || echo missing)
+            [ -z "$final_status" ] && final_status=missing
             if [ "$final_status" != "healthy" ] && [ "$final_status" != "running" ]; then
               echo "Backend did not become healthy in time"
               docker compose -f docker-compose.prod.yml logs backend --tail=200 || true
               exit 1
             fi
 
-            if docker exec ziplog-backend sh -lc "strings /app/app.jar | grep -q 'queryParam(\"accessToken\")'"; then
+            if docker exec "$backend_container_id" sh -lc "strings /app/app.jar | grep -q 'queryParam(\"accessToken\")'"; then
               echo "Old OAuth query-token runtime signature detected"
               exit 1
             fi
