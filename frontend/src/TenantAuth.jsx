@@ -1,8 +1,26 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from './api';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const mapOAuthErrorMessage = (rawError) => {
+  if (!rawError) return '';
+  const normalized = String(rawError).toLowerCase();
+  if (normalized.includes('authorization_request_not_found')) {
+    return '소셜 로그인 세션이 만료되었거나 쿠키가 차단되었습니다. 쿠키 허용 후 다시 시도해주세요.';
+  }
+  if (normalized.includes('invalid_redirect_uri')) {
+    return 'OAuth 리다이렉트 URI 설정이 올바르지 않습니다. 관리자에게 문의해주세요.';
+  }
+  if (normalized.includes('access_denied')) {
+    return '소셜 로그인 동의가 취소되었습니다.';
+  }
+  if (normalized.includes('invalid_client')) {
+    return 'OAuth 클라이언트 설정 오류입니다. 관리자에게 문의해주세요.';
+  }
+  return `소셜 로그인에 실패했습니다: ${rawError}`;
+};
 
 function useFieldValidation(formData, isLogin) {
   return useMemo(() => {
@@ -44,6 +62,7 @@ function useFieldValidation(formData, isLogin) {
 
 export default function TenantAuth() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -62,6 +81,18 @@ export default function TenantAuth() {
     name: '',
     confirmPassword: ''
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const oauthError = params.get('error');
+    if (!oauthError) return;
+
+    const message = mapOAuthErrorMessage(oauthError);
+    setIsLogin(true);
+    setError(message);
+    window.alert(message);
+    navigate('/auth', { replace: true });
+  }, [location.search, navigate]);
 
   const validation = useFieldValidation(formData, isLogin);
 
