@@ -1,8 +1,8 @@
 spring:
   application:
     name: tenant-accounting-backend
-  flyway:
-    enabled: false
+  profiles:
+    default: local
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/tenantAccounting}
@@ -12,12 +12,15 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         dialect: org.hibernate.dialect.MySQLDialect
+
+  flyway:
+    enabled: true
 
   security:
     oauth2:
@@ -26,14 +29,14 @@ spring:
           google:
             client-id: ${GOOGLE_CLIENT_ID:not-set}
             client-secret: ${GOOGLE_CLIENT_SECRET:not-set}
-            redirect-uri: "https://ziplog.kr/login/oauth2/code/google"
+            redirect-uri: ${GOOGLE_REDIRECT_URI:https://ziplog.kr/login/oauth2/code/google}
             scope:
               - email
               - profile
           kakao:
             client-id: ${KAKAO_CLIENT_ID:not-set}
             client-secret: ${KAKAO_CLIENT_SECRET:not-set}
-            redirect-uri: "https://ziplog.kr/login/oauth2/code/kakao"
+            redirect-uri: ${KAKAO_REDIRECT_URI:https://ziplog.kr/login/oauth2/code/kakao}
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
             scope:
@@ -58,7 +61,6 @@ spring:
       port: ${REDIS_PORT:6379}
       timeout: 3000ms
 
-# Redis Configuration
 redis:
   enabled: ${REDIS_ENABLED:false}
 
@@ -68,8 +70,8 @@ cors:
 server:
   port: 8080
   error:
-    include-message: always
-    include-binding-errors: always
+    include-message: never
+    include-binding-errors: never
 
 springdoc:
   api-docs:
@@ -79,19 +81,11 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
 
-# JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:myDefaultDevSecretKeyThatIsAtLeast256BitsLongForHS256Algorithm}
-  access-token-expiration: 3600000
-  refresh-token-expiration: 604800000
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800000}
 
-# JWT Configuration
-jwt:
-  secret: ${JWT_SECRET:myDefaultDevSecretKeyThatIsAtLeast256BitsLongForHS256Algorithm}
-  access-token-expiration: 3600000
-  refresh-token-expiration: 604800000
-
-# Sentry Configuration
 sentry:
   enabled: false
 
@@ -101,3 +95,8 @@ file:
 app:
   oauth2:
     authorized-redirect-uri: ${OAUTH2_REDIRECT_URI:https://ziplog.kr/oauth/redirect}
+  auth:
+    access-cookie-name: ${ACCESS_COOKIE_NAME:access_token}
+    refresh-cookie-name: ${REFRESH_COOKIE_NAME:refresh_token}
+    cookie-same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}

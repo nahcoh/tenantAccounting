@@ -1,16 +1,3 @@
-export function getUserNameFromToken() {
-  try {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return null;
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    const payload = JSON.parse(new TextDecoder().decode(bytes));
-    return payload.name || null;
-  } catch {
-    return null;
-  }
-}
-
 export const formatMoney = (value) => {
   if (!value && value !== 0) return '';
   return String(value).replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');

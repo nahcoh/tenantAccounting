@@ -1,6 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { getUserNameFromToken } from '../lib/utils';
 import { PHASES } from '../lib/constants';
 import useContract from '../hooks/useContract';
 import AddModal from './AddModal';
@@ -9,22 +8,35 @@ import api from '../api';
 export default function AppLayout() {
   const navigate = useNavigate();
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const userName = useMemo(() => getUserNameFromToken(), []);
+  const [userName, setUserName] = useState(null);
   const location = useLocation();
   const contractData = useContract();
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    navigate('/auth');
+  useEffect(() => {
+    const loadMe = async () => {
+      try {
+        const response = await api.get('/auth/me');
+        setUserName(response.data.name || null);
+      } catch {
+        setUserName(null);
+      }
+    };
+
+    loadMe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      navigate('/auth');
+    }
   };
 
   const handleDeleteAccount = async () => {
     if (!window.confirm('정말로 회원 탈퇴하시겠습니까? 모든 데이터가 삭제됩니다.')) return;
     try {
       await api.delete('/users/me');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
       navigate('/auth');
     } catch (err) {
       alert('회원 탈퇴에 실패했습니다. 다시 시도해주세요.');

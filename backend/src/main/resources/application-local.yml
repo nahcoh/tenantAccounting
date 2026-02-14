@@ -1,14 +1,28 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
     show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
 
-logging:
-  level:
-    com.ddalkkak: DEBUG
-    com.starter: DEBUG
-    org.springframework.web: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  flyway:
+    enabled: false
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+jwt:
+  secret: ${JWT_SECRET:myDefaultDevSecretKeyThatIsAtLeast256BitsLongForHS256Algorithm}
+
+app:
+  oauth2:
+    authorized-redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth/redirect}
+  auth:
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}

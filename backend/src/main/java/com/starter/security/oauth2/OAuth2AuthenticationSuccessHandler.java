@@ -2,16 +2,15 @@ package com.starter.security.oauth2;
 
 import com.starter.config.AppProperties;
 import com.starter.security.JwtTokenProvider;
+import com.starter.utils.CookieUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +53,27 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         String accessToken = tokenProvider.generateAccessToken(authentication);
         String refreshToken = tokenProvider.generateRefreshToken(authentication.getName());
 
+        int accessTokenMaxAge = (int) (tokenProvider.getAccessTokenExpiration() / 1000);
+        int refreshTokenMaxAge = (int) (tokenProvider.getRefreshTokenExpiration() / 1000);
+        CookieUtils.addCookie(
+                response,
+                appProperties.getAuth().getAccessCookieName(),
+                accessToken,
+                accessTokenMaxAge,
+                true,
+                appProperties.getAuth().isCookieSecure(),
+                appProperties.getAuth().getCookieSameSite()
+        );
+        CookieUtils.addCookie(
+                response,
+                appProperties.getAuth().getRefreshCookieName(),
+                refreshToken,
+                refreshTokenMaxAge,
+                true,
+                appProperties.getAuth().isCookieSecure(),
+                appProperties.getAuth().getCookieSameSite()
+        );
+
         if (redisTemplate != null) {
             try {
                 long refreshTokenExpiration = tokenProvider.getRefreshTokenExpiration();
@@ -63,10 +83,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             }
         }
 
-        return UriComponentsBuilder.fromUriString(targetUrl)
-                .queryParam("accessToken", accessToken)
-                .queryParam("refreshToken", refreshToken)
-                .build().toUriString();
+        return targetUrl;
     }
 
     protected void clearAuthenticationAttributes(HttpServletRequest request, HttpServletResponse response) {

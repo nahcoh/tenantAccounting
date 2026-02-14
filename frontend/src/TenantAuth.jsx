@@ -112,11 +112,7 @@ export default function TenantAuth() {
         ...(isLogin ? {} : { name: formData.name })
       };
 
-      const response = await api.post(endpoint, payload);
-      const { accessToken, refreshToken } = response.data;
-
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      await api.post(endpoint, payload);
 
       if (saveEmail) {
         localStorage.setItem('saveEmail', 'true');
@@ -132,7 +128,7 @@ export default function TenantAuth() {
         localStorage.removeItem('autoLogin');
       }
 
-      navigate('/');
+      navigate('/before/documents');
     } catch (err) {
       if (err.response?.data?.message) {
         setError(err.response.data.message);

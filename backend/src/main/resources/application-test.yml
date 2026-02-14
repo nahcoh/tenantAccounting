@@ -29,3 +29,10 @@ spring:
 
 redis:
   enabled: false
+
+jwt:
+  secret: testJwtSecretKeyThatIsAtLeast256BitsLongForHS256Token
+
+app:
+  auth:
+    cookie-secure: false

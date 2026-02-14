@@ -1,14 +1,36 @@
+import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import api from '../api';
 
 export default function PrivateRoute() {
-  const token = localStorage.getItem('accessToken');
-  const isAuthenticated = token && token !== 'undefined' && token !== 'null';
+  const [status, setStatus] = useState('checking');
 
-  console.log('[PrivateRoute] Check:', { isAuthenticated, token: token ? 'exists' : 'missing' });
+  useEffect(() => {
+    let mounted = true;
 
-  if (!isAuthenticated) {
-    console.log('[PrivateRoute] Not authenticated, redirecting to /auth');
+    const verify = async () => {
+      try {
+        await api.get('/auth/me');
+        if (mounted) setStatus('authenticated');
+      } catch {
+        if (mounted) setStatus('unauthenticated');
+      }
+    };
+
+    verify();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (status === 'checking') {
+    return <div className="p-6 text-center text-gray-500">인증 확인 중...</div>;
+  }
+
+  if (status === 'unauthenticated') {
     return <Navigate to="/auth" replace />;
   }
+
   return <Outlet />;
 }

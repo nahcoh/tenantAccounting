@@ -1,7 +1,9 @@
 package com.starter.security;
 
+import com.starter.config.AppProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +25,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final AppProperties appProperties;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/api/auth/");
+        return "/api/auth/signup".equals(path)
+                || "/api/auth/login".equals(path)
+                || "/api/auth/refresh".equals(path)
+                || "/api/auth/check-email".equals(path);
     }
 
     @Override
@@ -58,6 +64,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String bearer = request.getHeader("Authorization");
         if (StringUtils.hasText(bearer) && bearer.startsWith("Bearer ")) {
             return bearer.substring(7);
+        }
+
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (appProperties.getAuth().getAccessCookieName().equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
+                    return cookie.getValue();
+                }
+            }
         }
         return null;
     }

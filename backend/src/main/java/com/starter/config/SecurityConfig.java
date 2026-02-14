@@ -58,7 +58,15 @@ public class SecurityConfig {
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/", "/api/auth/**", "/oauth2/**", "/login/oauth2/code/*").permitAll()
+                        .requestMatchers(
+                                "/",
+                                "/api/auth/signup",
+                                "/api/auth/login",
+                                "/api/auth/refresh",
+                                "/api/auth/check-email",
+                                "/oauth2/**",
+                                "/login/oauth2/code/*"
+                        ).permitAll()
                         .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .anyRequest().authenticated()
@@ -89,7 +97,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setExposedHeaders(List.of("Set-Cookie"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

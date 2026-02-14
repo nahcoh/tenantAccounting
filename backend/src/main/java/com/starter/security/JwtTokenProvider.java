@@ -57,6 +57,10 @@ public class JwtTokenProvider {
         return refreshTokenExpiration;
     }
 
+    public long getAccessTokenExpiration() {
+        return accessTokenExpiration;
+    }
+
     private String generateToken(String subject, String name, long expiration) {
         Date now = new Date();
         var builder = Jwts.builder()

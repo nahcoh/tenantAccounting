@@ -3,6 +3,8 @@ package com.starter.utils;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.util.SerializationUtils;
 
 import java.util.Base64;
@@ -25,25 +27,41 @@ public class CookieUtils {
     }
 
     public static void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setMaxAge(maxAge);
-        response.addCookie(cookie);
+        addCookie(response, name, value, maxAge, true, false, "Lax");
+    }
+
+    public static void addCookie(
+            HttpServletResponse response,
+            String name,
+            String value,
+            int maxAge,
+            boolean httpOnly,
+            boolean secure,
+            String sameSite
+    ) {
+        ResponseCookie cookie = ResponseCookie.from(name, value)
+                .httpOnly(httpOnly)
+                .secure(secure)
+                .sameSite(sameSite)
+                .path("/")
+                .maxAge(maxAge)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     public static void deleteCookie(HttpServletRequest request, HttpServletResponse response, String name) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null && cookies.length > 0) {
-            for (Cookie cookie: cookies) {
-                if (cookie.getName().equals(name)) {
-                    cookie.setValue("");
-                    cookie.setPath("/");
-                    cookie.setMaxAge(0);
-                    response.addCookie(cookie);
-                }
-            }
-        }
+        deleteCookie(response, name, false, "Lax");
+    }
+
+    public static void deleteCookie(HttpServletResponse response, String name, boolean secure, String sameSite) {
+        ResponseCookie cookie = ResponseCookie.from(name, "")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite(sameSite)
+                .path("/")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     public static String serialize(Object object) {
