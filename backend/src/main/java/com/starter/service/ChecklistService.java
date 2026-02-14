@@ -137,7 +137,7 @@ public class ChecklistService {
 
         try {
             String storedName = UUID.randomUUID() + ext;
-            String newFilePath = storeFile(checklistId, storedName, file);
+            String newFilePath = storeFile(checklist, storedName, file);
             deleteStoredFile(checklist.getFilePath());
 
             checklist.setFilePath(newFilePath);
@@ -193,10 +193,11 @@ public class ChecklistService {
         return toResponse(checklistRepository.save(checklist));
     }
 
-    private String storeFile(Long checklistId, String storedName, MultipartFile file) throws IOException {
+    private String storeFile(Checklist checklist, String storedName, MultipartFile file) throws IOException {
+        String phaseFolder = resolvePhaseFolder(checklist.getPhase());
         if (s3Enabled) {
             String bucket = normalizeBucketName(s3Bucket);
-            String key = normalizePrefix(s3Prefix) + "/" + checklistId + "/" + storedName;
+            String key = normalizePrefix(s3Prefix) + "/" + phaseFolder + "/" + checklist.getId() + "/" + storedName;
             PutObjectRequest request = PutObjectRequest.builder()
                     .bucket(bucket)
                     .key(key)
@@ -206,7 +207,7 @@ public class ChecklistService {
             return "s3://" + bucket + "/" + key;
         }
 
-        Path dir = Paths.get(uploadDir, "checklists", checklistId.toString());
+        Path dir = Paths.get(uploadDir, "checklists", phaseFolder, checklist.getId().toString());
         Files.createDirectories(dir);
         Path filePath = dir.resolve(storedName);
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
@@ -270,6 +271,17 @@ public class ChecklistService {
             normalized = normalized.substring(0, normalized.length() - 1);
         }
         return normalized.isBlank() ? "checklists" : normalized;
+    }
+
+    private String resolvePhaseFolder(ContractPhase phase) {
+        if (phase == null) {
+            return "입주중";
+        }
+        return switch (phase) {
+            case PRE_CONTRACT, ON_CONTRACT -> "입주전";
+            case POST_CONTRACT -> "입주중";
+            case MOVE_OUT -> "입주후";
+        };
     }
 
     private S3Client s3Client() {
