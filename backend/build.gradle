@@ -31,6 +31,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
 	// Database
 	implementation 'mysql:mysql-connector-java:8.0.33'
@@ -71,7 +72,6 @@ dependencies {
 	// implementation 'com.langfuse:langfuse-java:0.1.0'
 
 	// OpenTelemetry for Langfuse Tracing
-	// implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	// implementation 'io.micrometer:micrometer-tracing-bridge-otel'
 	// implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
 	// implementation 'io.opentelemetry:opentelemetry-api'

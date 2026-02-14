@@ -65,7 +65,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/auth/check-email",
                                 "/oauth2/**",
-                                "/login/oauth2/code/*"
+                                "/login/oauth2/code/*",
+                                "/actuator/health"
                         ).permitAll()
                         .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
