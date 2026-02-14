@@ -70,20 +70,7 @@ public class AuthController {
 
     @PostMapping("/auth/logout")
     public ResponseEntity<Void> logout(HttpServletResponse response) {
-        CookieUtils.deleteCookie(
-                response,
-                appProperties.getAuth().getAccessCookieName(),
-                appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite(),
-                appProperties.getAuth().getCookieDomain()
-        );
-        CookieUtils.deleteCookie(
-                response,
-                appProperties.getAuth().getRefreshCookieName(),
-                appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite(),
-                appProperties.getAuth().getCookieDomain()
-        );
+        clearAuthCookies(response);
         return ResponseEntity.noContent().build();
     }
 
@@ -120,20 +107,7 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
         authService.deleteAccount(principal.getEmail());
-        CookieUtils.deleteCookie(
-                response,
-                appProperties.getAuth().getAccessCookieName(),
-                appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite(),
-                appProperties.getAuth().getCookieDomain()
-        );
-        CookieUtils.deleteCookie(
-                response,
-                appProperties.getAuth().getRefreshCookieName(),
-                appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite(),
-                appProperties.getAuth().getCookieDomain()
-        );
+        clearAuthCookies(response);
         return ResponseEntity.noContent().build();
     }
 
@@ -159,6 +133,38 @@ public class AuthController {
                 appProperties.getAuth().isCookieSecure(),
                 appProperties.getAuth().getCookieSameSite(),
                 appProperties.getAuth().getCookieDomain()
+        );
+    }
+
+    private void clearAuthCookies(HttpServletResponse response) {
+        // Delete domain-scoped cookie (.ziplog.kr) and host-only cookie(ziplog.kr) both
+        CookieUtils.deleteCookie(
+                response,
+                appProperties.getAuth().getAccessCookieName(),
+                appProperties.getAuth().isCookieSecure(),
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
+        );
+        CookieUtils.deleteCookie(
+                response,
+                appProperties.getAuth().getRefreshCookieName(),
+                appProperties.getAuth().isCookieSecure(),
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
+        );
+        CookieUtils.deleteCookie(
+                response,
+                appProperties.getAuth().getAccessCookieName(),
+                appProperties.getAuth().isCookieSecure(),
+                appProperties.getAuth().getCookieSameSite(),
+                null
+        );
+        CookieUtils.deleteCookie(
+                response,
+                appProperties.getAuth().getRefreshCookieName(),
+                appProperties.getAuth().isCookieSecure(),
+                appProperties.getAuth().getCookieSameSite(),
+                null
         );
     }
 }
