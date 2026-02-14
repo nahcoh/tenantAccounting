@@ -27,7 +27,7 @@ public class CookieUtils {
     }
 
     public static void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
-        addCookie(response, name, value, maxAge, true, false, "Lax");
+        addCookie(response, name, value, maxAge, true, false, "Lax", null);
     }
 
     public static void addCookie(
@@ -37,30 +37,37 @@ public class CookieUtils {
             int maxAge,
             boolean httpOnly,
             boolean secure,
-            String sameSite
+            String sameSite,
+            String domain
     ) {
-        ResponseCookie cookie = ResponseCookie.from(name, value)
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from(name, value)
                 .httpOnly(httpOnly)
                 .secure(secure)
                 .sameSite(sameSite)
                 .path("/")
-                .maxAge(maxAge)
-                .build();
+                .maxAge(maxAge);
+        if (domain != null && !domain.isBlank()) {
+            cookieBuilder.domain(domain);
+        }
+        ResponseCookie cookie = cookieBuilder.build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     public static void deleteCookie(HttpServletRequest request, HttpServletResponse response, String name) {
-        deleteCookie(response, name, false, "Lax");
+        deleteCookie(response, name, false, "Lax", null);
     }
 
-    public static void deleteCookie(HttpServletResponse response, String name, boolean secure, String sameSite) {
-        ResponseCookie cookie = ResponseCookie.from(name, "")
+    public static void deleteCookie(HttpServletResponse response, String name, boolean secure, String sameSite, String domain) {
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from(name, "")
                 .httpOnly(true)
                 .secure(secure)
                 .sameSite(sameSite)
                 .path("/")
-                .maxAge(0)
-                .build();
+                .maxAge(0);
+        if (domain != null && !domain.isBlank()) {
+            cookieBuilder.domain(domain);
+        }
+        ResponseCookie cookie = cookieBuilder.build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 

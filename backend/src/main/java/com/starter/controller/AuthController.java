@@ -74,13 +74,15 @@ public class AuthController {
                 response,
                 appProperties.getAuth().getAccessCookieName(),
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
         CookieUtils.deleteCookie(
                 response,
                 appProperties.getAuth().getRefreshCookieName(),
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
         return ResponseEntity.noContent().build();
     }
@@ -122,13 +124,15 @@ public class AuthController {
                 response,
                 appProperties.getAuth().getAccessCookieName(),
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
         CookieUtils.deleteCookie(
                 response,
                 appProperties.getAuth().getRefreshCookieName(),
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
         return ResponseEntity.noContent().build();
     }
@@ -143,7 +147,8 @@ public class AuthController {
                 accessTokenMaxAge,
                 true,
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
         CookieUtils.addCookie(
                 response,
@@ -152,7 +157,8 @@ public class AuthController {
                 refreshTokenMaxAge,
                 true,
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
     }
 }

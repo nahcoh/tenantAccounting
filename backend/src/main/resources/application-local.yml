@@ -25,4 +25,6 @@ app:
   oauth2:
     authorized-redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth/redirect}
   auth:
+    cookie-same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
     cookie-secure: ${AUTH_COOKIE_SECURE:false}
+    cookie-domain: ${AUTH_COOKIE_DOMAIN:}

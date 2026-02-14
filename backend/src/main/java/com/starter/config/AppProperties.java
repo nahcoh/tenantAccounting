@@ -27,5 +27,6 @@ public class AppProperties {
         private String refreshCookieName = "refresh_token";
         private String cookieSameSite = "Lax";
         private boolean cookieSecure = false;
+        private String cookieDomain;
     }
 }

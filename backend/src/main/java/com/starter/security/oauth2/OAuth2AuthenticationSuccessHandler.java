@@ -62,7 +62,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 accessTokenMaxAge,
                 true,
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
         CookieUtils.addCookie(
                 response,
@@ -71,7 +72,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 refreshTokenMaxAge,
                 true,
                 appProperties.getAuth().isCookieSecure(),
-                appProperties.getAuth().getCookieSameSite()
+                appProperties.getAuth().getCookieSameSite(),
+                appProperties.getAuth().getCookieDomain()
         );
 
         if (redisTemplate != null) {

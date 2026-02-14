@@ -113,6 +113,19 @@ export default function TenantAuth() {
       };
 
       await api.post(endpoint, payload);
+      let sessionReady = false;
+      for (let i = 0; i < 3; i += 1) {
+        try {
+          await api.get('/auth/me');
+          sessionReady = true;
+          break;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
+      if (!sessionReady) {
+        throw new Error('SESSION_NOT_READY');
+      }
 
       if (saveEmail) {
         localStorage.setItem('saveEmail', 'true');
@@ -130,7 +143,9 @@ export default function TenantAuth() {
 
       navigate('/before/documents');
     } catch (err) {
-      if (err.response?.data?.message) {
+      if (err.message === 'SESSION_NOT_READY') {
+        setError('로그인 세션 설정에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (err.response?.data?.message) {
         setError(err.response.data.message);
       } else if (err.response?.status === 401) {
         setError('이메일 또는 비밀번호가 올바르지 않습니다.');
