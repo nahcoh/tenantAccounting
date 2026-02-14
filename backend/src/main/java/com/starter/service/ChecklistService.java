@@ -143,7 +143,8 @@ public class ChecklistService {
             checklist.setFilePath(newFilePath);
             checklist.setFileName(originalName);
             return toResponse(checklistRepository.save(checklist));
-        } catch (IOException e) {
+        } catch (Exception e) {
+            log.error("Checklist file upload failed - checklistId={}, originalName={}", checklistId, originalName, e);
             throw new RuntimeException("파일 저장에 실패했습니다.", e);
         }
     }
