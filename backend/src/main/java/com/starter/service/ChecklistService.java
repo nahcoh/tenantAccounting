@@ -9,6 +9,7 @@ import com.starter.enums.ContractPhase;
 import com.starter.repository.ChecklistRepository;
 import com.starter.repository.ContractRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -29,6 +30,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChecklistService {
@@ -243,8 +245,11 @@ public class ChecklistService {
     private Checklist getChecklistAndVerifyOwner(Long userId, Long checklistId) {
         Checklist checklist = checklistRepository.findById(checklistId)
                 .orElseThrow(() -> new IllegalArgumentException("Checklist not found with id: " + checklistId));
-        if (!checklist.getContract().getUser().getId().equals(userId)) {
-            throw new IllegalArgumentException("Access denied");
+        Long ownerId = checklist.getContract().getUser().getId();
+        if (!ownerId.equals(userId)) {
+            log.warn("Checklist access denied - userId: {}, checklistId: {}, ownerId: {}",
+                    userId, checklistId, ownerId);
+            throw new IllegalArgumentException("해당 체크리스트에 접근 권한이 없습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.");
         }
         return checklist;
     }

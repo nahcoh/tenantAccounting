@@ -123,16 +123,6 @@ jobs:
             echo "SPRING_JPA_HIBERNATE_DDL_AUTO=update" >> .env
             echo "APP_COMMIT_SHA=$GITHUB_SHA" >> .env
 
-            mkdir -p backups
-            if docker ps --format '{{.Names}}' | grep -q '^ziplog-mysql$'; then
-              ts=$(date +%Y%m%d_%H%M%S)
-              docker exec ziplog-mysql sh -lc "mysqldump -uroot -p\"$MYSQL_ROOT_PASSWORD\" \"$MYSQL_DATABASE\"" > "backups/mysql_${ts}.sql"
-              find backups -type f -name 'mysql_*.sql' -mtime +7 -delete || true
-              echo "Database backup created: backups/mysql_${ts}.sql"
-            else
-              echo "ziplog-mysql not running, skip backup step"
-            fi
-
             docker compose -f docker-compose.prod.yml down --remove-orphans || true
             docker compose -f docker-compose.prod.yml up -d --build --force-recreate --remove-orphans
 

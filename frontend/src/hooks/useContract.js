@@ -399,6 +399,14 @@ export default function useContract() {
         ));
       }
     } catch (err) {
+      if (err.response?.status === 403 && contract?.id) {
+        try {
+          const refresh = await api.get(`/contracts/${contract.id}/checklists`);
+          setChecklists(Array.isArray(refresh.data) ? refresh.data : []);
+        } catch (refreshErr) {
+          console.error('[handleChecklistFileUpload] Refresh after 403 failed:', refreshErr);
+        }
+      }
       if (err.message === 'API_ROUTE_ERROR') {
         alert('파일 업로드가 보안 정책에 의해 차단되었습니다. 파일 크기를 줄이거나 잠시 후 다시 시도해 주세요.');
       } else {
