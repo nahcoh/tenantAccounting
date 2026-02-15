@@ -1,135 +1,106 @@
-# 🏠 Tenant Housing Record App (세입자 주거 기록 앱)
+# Tenant Housing Record App (Ziplog)
 
-세입자가 임대차 계약부터 입주 중 수리 기록, 퇴거 시 보증금 정산까지 주거의 모든 과정을 체계적으로 관리할 수 있는 서비스입니다.
+세입자의 계약 전/중/후 업무를 기록하고 관리하는 웹 서비스입니다.  
+현재 프로덕션은 `ziplog.kr`에서 운영 중이며, 프론트/백엔드 모두 GitHub Actions로 자동 배포합니다.
 
-## 🌟 주요 기능
+## 핵심 기능
 
-* **비용 관리 (Cost Management):** 월세, 관리비, 공과금, 대출 이자 납부 일정 관리 및 캘린더 뷰 제공
-* **입주 전 (Before Move-in):** 임대차 계약 등록/수정/삭제, 서류 관리(파일 첨부/다운로드/미리보기), 특약사항 기록 및 확인
-* **입주 중 (During Residence):** 집 수리/하자 발생 시 사진 및 영수증과 함께 기록 (집주인/세입자 부담 구분)
-* **입주 후 (After Move-out):** 퇴거 체크리스트 (보증금 반환, 시설물 복구, 공과금 정산 등)
+- 계약/서류/특약/체크리스트/유지보수/공과금/납부일정 관리
+- JWT + OAuth2(Google, Kakao) 인증
+- 파일 업로드/다운로드(체크리스트는 S3 저장)
+- 체크리스트 파일 업로드 시 계약 단계별 S3 폴더 분리
+  - `입주전`: `PRE_CONTRACT`, `ON_CONTRACT`
+  - `입주중`: `POST_CONTRACT`
+  - `입주후`: `MOVE_OUT`
 
-## 🛠️ 기술 스택 (Tech Stack)
+## 기술 스택
+
+- Frontend: React 18, Vite, Tailwind CSS, React Router v7, Axios
+- Backend: Java 17, Spring Boot 3.2, Spring Security, Spring Data JPA, OAuth2 Client
+- Data: MySQL 8
+- Infra: EC2, Docker Compose, S3, CloudFront
+- CI/CD: GitHub Actions
+
+## 운영 아키텍처
+
+- 사용자 요청
+  - 정적 파일: `CloudFront -> S3(frontend bucket)`
+  - API: `CloudFront -> EC2(backend container)`
+- 백엔드
+  - Spring Boot 컨테이너에서 MySQL 컨테이너 연결
+  - 체크리스트 파일은 S3 버킷에 저장
+- 데이터 보존
+  - MySQL 데이터는 Docker named volume(`ziplog_mysql_data`) 사용
+  - 배포 시 DB 백업(`mysqldump`) 자동 생성
+
+## 배포 파이프라인 요약
+
+워크플로우 파일: `.github/workflows/deploy.yml`
+
+- `main`, `develop` push 시 실행
+- 변경 경로 필터링
+  - `backend/**`, `docker-compose.prod.yml` 변경 시 백엔드 배포
+  - `frontend/**` 변경 시 프론트 배포
+- 백엔드 배포
+  - EC2로 코드 전송
+  - `.env` 재생성(시크릿 주입)
+  - `docker compose up -d --build --force-recreate`
+  - 컨테이너 헬스체크/기동 검증
+- 프론트 배포
+  - 빌드 결과를 S3 동기화
+  - CloudFront invalidation
+
+## 최근 반영 사항 (운영 안정화)
+
+- Actuator 기반 헬스체크 경로 정리 및 인증 이슈 보정
+- 필수 시크릿 누락 시 배포 단계에서 즉시 실패 처리
+- `SPRING_JPA_HIBERNATE_DDL_AUTO=update` 주입으로 스키마 누락 이슈 완화
+- MySQL 볼륨 이름 고정(`ziplog_mysql_data`)으로 재기동 시 데이터 유지 강화
+- 체크리스트 업로드를 S3 저장으로 전환
+- S3 버킷 값 정규화/검증 로직 추가
+- S3 dotted bucket 대응(path-style access) 적용
+- 업로드 실패 시 서버 로그 강화(운영 디버깅 속도 개선)
+
+## 로컬 실행
 
 ### Frontend
-* **React 18** (Vite)
-* **Tailwind CSS** (UI Styling)
-* **React Router v7** (URL 기반 중첩 라우팅)
-* **Axios** (API 통신, JWT 자동 갱신)
 
-### Backend
-* **Java 17**
-* **Spring Boot 3.2**
-* **Spring Data JPA**
-* **Spring Security + JWT** (인증/인가)
-* **OAuth2** (Google, Kakao 소셜 로그인)
-* **MySQL**
-
-## 📂 프로젝트 구조
-
-```
-tenant_record/
-├── frontend/                          # React 프론트엔드
-│   └── src/
-│       ├── components/                # 공통 컴포넌트
-│       │   ├── AppLayout.jsx          #   헤더 + 페이즈 네비게이션
-│       │   ├── PrivateRoute.jsx       #   인증 보호 라우트
-│       │   └── AddModal.jsx           #   계약/서류/특약 등록 모달
-│       ├── hooks/
-│       │   └── useContract.js         # 계약 상태 + CRUD 로직
-│       ├── lib/
-│       │   ├── constants.js           # 상수 (라벨 맵, 페이즈 정의)
-│       │   └── utils.js              # 유틸 함수
-│       ├── pages/
-│       │   ├── cost/                  # 비용 관리 (달력, 요약, 계약정보, 공과금, 대출)
-│       │   ├── before/                # 입주 전 (서류 관리, 특약사항)
-│       │   ├── during/                # 입주 중 (유지보수 기록)
-│       │   └── after/                 # 입주 후 (퇴거 체크리스트)
-│       ├── App.jsx                    # 라우트 정의
-│       ├── TenantAuth.jsx             # 로그인/회원가입
-│       ├── OAuth2RedirectHandler.jsx  # OAuth 콜백
-│       └── api.js                     # Axios 클라이언트 (JWT 갱신)
-├── backend/                           # Spring Boot 백엔드
-│   └── src/main/java/com/starter/
-│       ├── controller/                # REST API 컨트롤러
-│       │   ├── AuthController         #   인증 (로그인/회원가입/토큰갱신)
-│       │   ├── ContractController     #   계약 CRUD
-│       │   ├── DocumentController     #   서류 CRUD + 파일 업로드/다운로드
-│       │   ├── SpecialTermController  #   특약사항 CRUD + 파일 첨부
-│       │   ├── PaymentController      #   납부 일정 (캘린더)
-│       │   ├── MaintenanceController  #   유지보수 기록
-│       │   └── UtilityController      #   공과금
-│       ├── security/                  # JWT + OAuth2 인증
-│       └── ...
-├── docs/                              # 기획 및 설계 문서
-└── terraform/                         # 인프라 설정
-```
-
-## 🔗 URL 라우팅 구조 (Frontend)
-
-```
-/auth                    → 로그인/회원가입
-/oauth/redirect          → OAuth2 콜백
-/before/documents        → 입주 전 > 서류 관리
-/before/terms            → 입주 전 > 특약사항
-/during/maintenance      → 입주 중 > 유지보수
-/after/checklist         → 입주 후 > 퇴거 체크리스트
-/cost/calendar           → 비용 관리 > 납부 일정
-/cost/overview           → 비용 관리 > 요약
-/cost/contract           → 비용 관리 > 계약 정보
-/cost/utilities          → 비용 관리 > 공과금
-/cost/loan               → 비용 관리 > 대출/이자
-```
-
-## 🚀 시작하기 (Getting Started)
-
-### Frontend 실행
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-> 브라우저에서 `http://localhost:5173` 접속
 
-### Backend 실행
+### Backend
+
 ```bash
 cd backend
 ./gradlew bootRun
 ```
-> 서버가 `http://localhost:8080`에서 실행됩니다.
 
-## 📝 개발 진행 상황
+### Docker (프로덕션 유사)
 
-### ✅ 완료된 작업
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
-- **인증 시스템:**
-  - JWT 기반 로그인/회원가입/토큰 갱신
-  - Google, Kakao OAuth2 소셜 로그인
-  - 프론트엔드 PrivateRoute 인증 보호
+## 필수 환경변수 (백엔드)
 
-- **백엔드 API:**
-  - 계약 CRUD (`/api/contracts`)
-  - 서류 CRUD + 파일 업로드/다운로드/미리보기 (`/api/documents`)
-  - 특약사항 CRUD + 파일 첨부/확인 토글 (`/api/special-terms`)
-  - 납부 일정 캘린더 조회 (`/api/payments/calendar`)
-  - 유지보수, 공과금 API
+- DB: `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`
+- Auth: `JWT_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`
+- CORS/Cookie: `CORS_ALLOWED_ORIGINS`, `AUTH_COOKIE_DOMAIN`
+- S3(체크리스트 업로드):
+  - `STORAGE_S3_ENABLED`
+  - `AWS_S3_BUCKET`
+  - `AWS_REGION`
+  - `AWS_S3_PREFIX`
+  - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (또는 EC2 IAM Role)
 
-- **프론트엔드 연동:**
-  - 계약 등록/수정/삭제 (카카오 주소 검색 연동)
-  - 서류 관리 (파일 첨부, 다운로드, 이미지/PDF 미리보기)
-  - 특약사항 관리 (파일 첨부, 확인 체크)
-  - 납부 달력 (월별 납부 현황, 다가오는 일정)
+## 장애 대응 시 빠른 점검
 
-- **라우팅 리팩토링:**
-  - 1,728줄 단일 파일을 20개 파일로 분리
-  - React Router v7 중첩 라우트 기반 URL 라우팅 구현
-  - 브라우저 뒤로가기/앞으로가기, URL 북마크, 직접 접속 지원
-
-### 🚀 다음 작업
-
-1. **입주 중/입주 후 기능 백엔드 연동:** 유지보수 기록, 퇴거 체크리스트 CRUD API 연동
-2. **비용 관리 세부 기능:** 요약, 계약 정보, 공과금, 대출/이자 페이지 구현
-3. **알림 기능:** 납부일 알림, 계약 만료 알림
-
----
-**Note:** 이 프로젝트는 `com.starter` 템플릿을 기반으로 확장 개발 중입니다.
+- 컨테이너 상태:
+  - `docker ps --format "table {{.Names}}\t{{.Status}}"`
+- 백엔드 최근 로그:
+  - `docker compose -f docker-compose.prod.yml logs backend --since=10m | tail -n 300`
+- 체크리스트 업로드 에러 필터:
+  - `docker compose -f docker-compose.prod.yml logs backend --since=10m | grep -E "Checklist file upload failed|Caused by" -A4 -B2`
