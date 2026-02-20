@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import TenantAuth from './TenantAuth';
 import OAuth2RedirectHandler from './OAuth2RedirectHandler';
 import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute';
 import AppLayout from './components/AppLayout';
 import LandingPage from './pages/LandingPage';
 import CostLayout from './pages/cost/CostLayout';
@@ -21,6 +22,9 @@ import AfterLayout from './pages/after/AfterLayout';
 import ChecklistPage from './pages/after/ChecklistPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import InquiryWritePage from './pages/support/InquiryWritePage';
+import MyInquiriesPage from './pages/support/MyInquiriesPage';
+import AdminInquiriesPage from './pages/admin/AdminInquiriesPage';
 
 function App() {
   if (window.location.hostname === 'www.ziplog.kr') {
@@ -62,6 +66,16 @@ function App() {
           <Route path="after/*" element={<AfterLayout />}>
             <Route index element={<Navigate to="checklist" replace />} />
             <Route path="checklist" element={<ChecklistPage />} />
+          </Route>
+
+          <Route path="support">
+            <Route index element={<Navigate to="inquiry" replace />} />
+            <Route path="inquiry" element={<InquiryWritePage />} />
+            <Route path="my-inquiries" element={<MyInquiriesPage />} />
+          </Route>
+
+          <Route element={<AdminRoute />}>
+            <Route path="admin/inquiries" element={<AdminInquiriesPage />} />
           </Route>
         </Route>
       </Route>
