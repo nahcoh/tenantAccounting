@@ -82,22 +82,33 @@ public class AuthController {
 
         Object principal = authentication.getPrincipal();
         if (principal instanceof UserPrincipal userPrincipal) {
+            String role = userPrincipal.getAuthorities().stream()
+                    .findFirst()
+                    .map(authority -> authority.getAuthority().replace("ROLE_", ""))
+                    .orElse("USER");
             return ResponseEntity.ok(Map.of(
                     "email", userPrincipal.getEmail(),
-                    "name", userPrincipal.getDisplayName()
+                    "name", userPrincipal.getDisplayName(),
+                    "role", role
             ));
         }
 
         if (principal instanceof UserDetails userDetails) {
+            String role = userDetails.getAuthorities().stream()
+                    .findFirst()
+                    .map(authority -> authority.getAuthority().replace("ROLE_", ""))
+                    .orElse("USER");
             return ResponseEntity.ok(Map.of(
                     "email", userDetails.getUsername(),
-                    "name", userDetails.getUsername()
+                    "name", userDetails.getUsername(),
+                    "role", role
             ));
         }
 
         return ResponseEntity.ok(Map.of(
                 "email", principal.toString(),
-                "name", principal.toString()
+                "name", principal.toString(),
+                "role", "USER"
         ));
     }
 
