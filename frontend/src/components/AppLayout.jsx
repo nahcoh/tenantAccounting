@@ -8,9 +8,12 @@ import api from '../api';
 export default function AppLayout() {
   const navigate = useNavigate();
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showPhaseMenu, setShowPhaseMenu] = useState(false);
   const [userName, setUserName] = useState(null);
   const location = useLocation();
   const contractData = useContract();
+  const mainPhase = PHASES.find((phase) => phase.id === 'cost');
+  const sidePhases = PHASES.filter((phase) => phase.id !== 'cost');
 
   useEffect(() => {
     const loadMe = async () => {
@@ -24,6 +27,10 @@ export default function AppLayout() {
 
     loadMe();
   }, []);
+
+  useEffect(() => {
+    setShowPhaseMenu(false);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     try {
@@ -45,9 +52,9 @@ export default function AppLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-slate-50 pb-20">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-slate-200">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -98,26 +105,29 @@ export default function AppLayout() {
 
         {/* Phase Navigation */}
         <div className="px-6 pb-4">
-          <div className="flex gap-1 p-1 bg-gray-100 rounded-xl overflow-x-auto">
-            {PHASES.map(phase => {
-              const isActive = location.pathname.startsWith(`/${phase.id}`);
-              return (
-                <NavLink
-                  key={phase.id}
-                  to={`/${phase.id}/${phase.defaultTab}`}
-                  className={
-                    `flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                      isActive
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`
-                  }
-                >
-                  <span>{phase.icon}</span>
-                  <span>{phase.label}</span>
-                </NavLink>
-              );
-            })}
+          <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl">
+            <NavLink
+              to={`/${mainPhase.id}/${mainPhase.defaultTab}`}
+              className={({ isActive }) =>
+                `flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                  isActive
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-700 hover:text-gray-900'
+                }`
+              }
+            >
+              <span>{mainPhase.icon}</span>
+              <span>{mainPhase.label}</span>
+            </NavLink>
+            <button
+              onClick={() => setShowPhaseMenu(true)}
+              className="px-3 py-3 rounded-lg text-gray-700 hover:bg-white hover:shadow-sm transition-all"
+              aria-label="카테고리 메뉴 열기"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
           </div>
         </div>
       </header>
@@ -126,6 +136,49 @@ export default function AppLayout() {
       <main className="p-6">
         <Outlet context={contractData} />
       </main>
+
+      {showPhaseMenu && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-40 z-40"
+          onClick={() => setShowPhaseMenu(false)}
+        >
+          <div
+            className="absolute right-0 top-0 h-full w-[280px] bg-white shadow-xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-semibold text-gray-900">카테고리 이동</h3>
+              <button
+                onClick={() => setShowPhaseMenu(false)}
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-2">
+              {sidePhases.map((phase) => {
+                const isActive = location.pathname.startsWith(`/${phase.id}`);
+                return (
+                  <NavLink
+                    key={phase.id}
+                    to={`/${phase.id}/${phase.defaultTab}`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <span className="text-lg">{phase.icon}</span>
+                    <span>{phase.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       <AddModal

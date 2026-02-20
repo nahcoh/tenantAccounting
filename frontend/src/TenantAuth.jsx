@@ -172,7 +172,7 @@ export default function TenantAuth() {
         localStorage.removeItem('autoLogin');
       }
 
-      navigate('/before/documents');
+      navigate('/cost/calendar');
     } catch (err) {
       if (err.message === 'SESSION_NOT_READY') {
         setError('로그인 세션 설정에 실패했습니다. 잠시 후 다시 시도해주세요.');
@@ -193,7 +193,7 @@ export default function TenantAuth() {
   const fieldClass = (name) => {
     const base = 'appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none sm:text-sm transition-colors';
     const v = validation[name];
-    if (!touched[name] || v === null || v === undefined) return `${base} border-gray-300 focus:ring-purple-500 focus:border-purple-500`;
+    if (!touched[name] || v === null || v === undefined) return `${base} border-gray-300 focus:ring-blue-500 focus:border-blue-500`;
     if (v === '') return `${base} border-green-400 focus:ring-green-500 focus:border-green-500`;
     return `${base} border-red-400 focus:ring-red-500 focus:border-red-500`;
   };
@@ -307,12 +307,12 @@ export default function TenantAuth() {
                     type="checkbox"
                     checked={agreeTerms}
                     onChange={(e) => setAgreeTerms(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    className="w-4 h-4 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-600">
-                    <Link to="/terms" target="_blank" className="text-purple-600 hover:text-purple-500 underline">이용약관</Link>
+                    <Link to="/terms" target="_blank" className="text-blue-600 hover:text-blue-500 underline">이용약관</Link>
                     {' '}및{' '}
-                    <Link to="/privacy" target="_blank" className="text-purple-600 hover:text-purple-500 underline">개인정보 처리방침</Link>
+                    <Link to="/privacy" target="_blank" className="text-blue-600 hover:text-blue-500 underline">개인정보 처리방침</Link>
                     에 동의합니다. <span className="text-red-500">*</span>
                   </span>
                 </label>
@@ -325,13 +325,13 @@ export default function TenantAuth() {
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={saveEmail}
                       onChange={(e) => setSaveEmail(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                     <span className="text-xs text-gray-600">아이디 저장</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input type="checkbox" checked={autoLogin}
                       onChange={(e) => setAutoLogin(e.target.checked)}
-                      className="w-3.5 h-3.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
                     <span className="text-xs text-gray-600">자동 로그인</span>
                   </label>
                 </div>
@@ -362,7 +362,7 @@ export default function TenantAuth() {
 
             <div>
               <button type="submit" disabled={isLoading || !canSubmit}
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? (
                   <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -392,13 +392,13 @@ export default function TenantAuth() {
                     type="checkbox"
                     checked={agreeSocialTerms}
                     onChange={(e) => setAgreeSocialTerms(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    className="w-4 h-4 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm text-gray-600">
                     소셜 로그인 시{' '}
-                    <Link to="/terms" target="_blank" className="text-purple-600 hover:text-purple-500 underline">이용약관</Link>
+                    <Link to="/terms" target="_blank" className="text-blue-600 hover:text-blue-500 underline">이용약관</Link>
                     {' '}및{' '}
-                    <Link to="/privacy" target="_blank" className="text-purple-600 hover:text-purple-500 underline">개인정보 처리방침</Link>
+                    <Link to="/privacy" target="_blank" className="text-blue-600 hover:text-blue-500 underline">개인정보 처리방침</Link>
                     에 동의합니다.
                   </span>
                 </label>

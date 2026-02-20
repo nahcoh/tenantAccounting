@@ -62,7 +62,7 @@ export default function OverviewPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -99,10 +99,10 @@ export default function OverviewPage() {
       </div>
 
       {/* 월별 총 지출 요약 카드 */}
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-purple-100 text-sm">이번 달 총 지출</p>
+            <p className="text-blue-100 text-sm">이번 달 총 지출</p>
             <p className="text-3xl font-bold mt-1">
               {(data?.currentMonthTotal || 0).toLocaleString()}원
             </p>
@@ -113,11 +113,11 @@ export default function OverviewPage() {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white bg-opacity-20 rounded-xl p-3">
-            <p className="text-purple-100 text-xs">납부 완료</p>
+            <p className="text-blue-100 text-xs">납부 완료</p>
             <p className="text-xl font-semibold">{(data?.currentMonthPaid || 0).toLocaleString()}원</p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-xl p-3">
-            <p className="text-purple-100 text-xs">납부 예정</p>
+            <p className="text-blue-100 text-xs">납부 예정</p>
             <p className="text-xl font-semibold">{(data?.currentMonthUpcoming || 0).toLocaleString()}원</p>
           </div>
         </div>
@@ -255,9 +255,9 @@ export default function OverviewPage() {
 
 function getCategoryColor(category) {
   const colors = {
-    RENT: '#8B5CF6',      // purple
+    RENT: '#2563EB',      // blue
     MAINTENANCE: '#F59E0B', // amber
-    LOAN: '#3B82F6',      // blue
+    LOAN: '#1D4ED8',      // blue
     UTILITY: '#10B981',   // green
   };
   return colors[category] || '#6B7280';
