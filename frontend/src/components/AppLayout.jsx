@@ -13,8 +13,9 @@ export default function AppLayout() {
   const [userRole, setUserRole] = useState('USER');
   const location = useLocation();
   const contractData = useContract();
-  const mainPhase = PHASES.find((phase) => phase.id === 'cost');
-  const sidePhases = PHASES.filter((phase) => phase.id !== 'cost');
+  const currentPhase = PHASES.find((phase) => location.pathname.startsWith(`/${phase.id}`))
+    || PHASES.find((phase) => phase.id === 'cost')
+    || PHASES[0];
 
   useEffect(() => {
     const loadMe = async () => {
@@ -123,19 +124,10 @@ export default function AppLayout() {
         {/* Phase Navigation */}
         <div className="px-6 pb-4">
           <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl">
-            <NavLink
-              to={`/${mainPhase.id}/${mainPhase.defaultTab}`}
-              className={({ isActive }) =>
-                `flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-                  isActive
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`
-              }
-            >
-              <span>{mainPhase.icon}</span>
-              <span>{mainPhase.label}</span>
-            </NavLink>
+            <div className="flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-medium bg-white text-gray-900 shadow-sm whitespace-nowrap">
+              <span>{currentPhase.icon}</span>
+              <span>{currentPhase.label}</span>
+            </div>
             <button
               onClick={() => setShowPhaseMenu(true)}
               className="px-3 py-3 rounded-lg text-gray-700 hover:bg-white hover:shadow-sm transition-all"
@@ -175,7 +167,7 @@ export default function AppLayout() {
               </button>
             </div>
             <div className="space-y-2">
-              {sidePhases.map((phase) => {
+              {PHASES.map((phase) => {
                 const isActive = location.pathname.startsWith(`/${phase.id}`);
                 return (
                   <NavLink
