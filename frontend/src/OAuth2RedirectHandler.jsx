@@ -9,7 +9,7 @@ const OAuth2RedirectHandler = () => {
     const verifySession = async () => {
       try {
         await api.get('/auth/me');
-        navigate('/before/documents', { replace: true });
+        navigate('/cost/calendar', { replace: true });
       } catch {
         navigate('/auth', { replace: true, state: { error: '로그인에 실패했습니다.' } });
       }

@@ -61,8 +61,8 @@ export const DEFAULT_REQUIRED_DOCUMENTS = [
 ];
 
 export const PHASES = [
+  { id: 'cost', label: '비용 관리', icon: '💰', color: 'purple', defaultTab: 'calendar' },
   { id: 'before', label: '입주 전', icon: '📋', color: 'blue', defaultTab: 'documents' },
   { id: 'during', label: '입주 중', icon: '🏠', color: 'green', defaultTab: 'maintenance' },
   { id: 'after', label: '입주 후', icon: '📦', color: 'orange', defaultTab: 'checklist' },
-  { id: 'cost', label: '비용 관리', icon: '💰', color: 'purple', defaultTab: 'calendar' },
 ];

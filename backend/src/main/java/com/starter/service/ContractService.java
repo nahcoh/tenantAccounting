@@ -55,6 +55,7 @@ public class ContractService {
         contract.setJeonseDeposit(request.getJeonseDeposit());
         contract.setMonthlyRent(request.getMonthlyRent());
         contract.setMaintenanceFee(request.getMaintenanceFee());
+        contract.setMonthlyPaymentDay(request.getMonthlyPaymentDay());
         contract.setStartDate(request.getStartDate());
         contract.setEndDate(request.getEndDate());
 
@@ -74,7 +75,13 @@ public class ContractService {
 
         // 기본 체크리스트 초기화
         checklistService.initializeDefaultChecklists(savedContract);
-        syncContractPayments(user, savedContract.getId(), request.getMonthlyRent(), request.getMaintenanceFee());
+        syncContractPayments(
+                user,
+                savedContract.getId(),
+                request.getMonthlyRent(),
+                request.getMaintenanceFee(),
+                request.getMonthlyPaymentDay()
+        );
 
         return toResponse(savedContract);
     }
@@ -107,11 +114,18 @@ public class ContractService {
         contract.setJeonseDeposit(request.getJeonseDeposit());
         contract.setMonthlyRent(request.getMonthlyRent());
         contract.setMaintenanceFee(request.getMaintenanceFee());
+        contract.setMonthlyPaymentDay(request.getMonthlyPaymentDay());
         contract.setStartDate(request.getStartDate());
         contract.setEndDate(request.getEndDate());
 
         Contract saved = contractRepository.save(contract);
-        syncContractPayments(contract.getUser(), contract.getId(), request.getMonthlyRent(), request.getMaintenanceFee());
+        syncContractPayments(
+                contract.getUser(),
+                contract.getId(),
+                request.getMonthlyRent(),
+                request.getMaintenanceFee(),
+                request.getMonthlyPaymentDay()
+        );
         return toResponse(saved);
     }
 
@@ -134,10 +148,16 @@ public class ContractService {
         contractRepository.delete(contract);
     }
 
-    private void syncContractPayments(User user, Long contractId, BigDecimal monthlyRent, BigDecimal maintenanceFee) {
+    private void syncContractPayments(
+            User user,
+            Long contractId,
+            BigDecimal monthlyRent,
+            BigDecimal maintenanceFee,
+            Integer monthlyPaymentDay
+    ) {
         List<Payment> existing = paymentRepository.findByUserIdAndSourceTypeAndSourceId(user.getId(), "CONTRACT", contractId);
-        syncContractPaymentByCategory(existing, user, contractId, PaymentCategory.RENT, "월세", monthlyRent);
-        syncContractPaymentByCategory(existing, user, contractId, PaymentCategory.MAINTENANCE, "관리비", maintenanceFee);
+        syncContractPaymentByCategory(existing, user, contractId, PaymentCategory.RENT, "월세", monthlyRent, monthlyPaymentDay);
+        syncContractPaymentByCategory(existing, user, contractId, PaymentCategory.MAINTENANCE, "관리비", maintenanceFee, monthlyPaymentDay);
     }
 
     private void syncContractPaymentByCategory(
@@ -146,11 +166,16 @@ public class ContractService {
             Long contractId,
             PaymentCategory category,
             String name,
-            BigDecimal amount
+            BigDecimal amount,
+            Integer monthlyPaymentDay
     ) {
         List<Payment> payments = existing.stream()
                 .filter(payment -> payment.getCategory() == category)
                 .collect(Collectors.toList());
+
+        int resolvedPaymentDay = (monthlyPaymentDay != null && monthlyPaymentDay >= 1 && monthlyPaymentDay <= 31)
+                ? monthlyPaymentDay
+                : 25;
 
         boolean hasAmount = amount != null && amount.compareTo(BigDecimal.ZERO) > 0;
         if (!hasAmount) {
@@ -165,7 +190,7 @@ public class ContractService {
                     .name(name)
                     .category(category)
                     .amount(amount)
-                    .paymentDay(25)
+                    .paymentDay(resolvedPaymentDay)
                     .isRecurring(true)
                     .autoPay(false)
                     .status(PaymentStatus.UPCOMING)
@@ -179,9 +204,7 @@ public class ContractService {
             target.setIsRecurring(true);
             target.setSourceType("CONTRACT");
             target.setSourceId(contractId);
-            if (target.getPaymentDay() == null) {
-                target.setPaymentDay(25);
-            }
+            target.setPaymentDay(resolvedPaymentDay);
             if (target.getStatus() == null) {
                 target.setStatus(PaymentStatus.UPCOMING);
             }
@@ -204,6 +227,7 @@ public class ContractService {
         response.setJeonseDeposit(contract.getJeonseDeposit());
         response.setMonthlyRent(contract.getMonthlyRent());
         response.setMaintenanceFee(contract.getMaintenanceFee());
+        response.setMonthlyPaymentDay(contract.getMonthlyPaymentDay());
         response.setStartDate(contract.getStartDate());
         response.setEndDate(contract.getEndDate());
         response.setCreatedAt(contract.getCreatedAt());

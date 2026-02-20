@@ -62,6 +62,7 @@ export default function ContractPage() {
     jeonseDeposit: '',
     monthlyRent: '',
     maintenanceFee: '',
+    monthlyPaymentDay: '25',
     startDate: '',
     endDate: '',
   });
@@ -95,6 +96,7 @@ export default function ContractPage() {
       jeonseDeposit: '',
       monthlyRent: '',
       maintenanceFee: '',
+      monthlyPaymentDay: '25',
       startDate: '',
       endDate: '',
     });
@@ -110,6 +112,7 @@ export default function ContractPage() {
       jeonseDeposit: contract.jeonseDeposit ? formatNumber(contract.jeonseDeposit) : '',
       monthlyRent: contract.monthlyRent ? formatNumber(contract.monthlyRent) : '',
       maintenanceFee: contract.maintenanceFee ? formatNumber(contract.maintenanceFee) : '',
+      monthlyPaymentDay: contract.monthlyPaymentDay ? String(contract.monthlyPaymentDay) : '25',
       startDate: contract.startDate || '',
       endDate: contract.endDate || '',
     });
@@ -149,6 +152,7 @@ export default function ContractPage() {
         jeonseDeposit: parseNumber(form.jeonseDeposit) ? Number(parseNumber(form.jeonseDeposit)) : null,
         monthlyRent: parseNumber(form.monthlyRent) ? Number(parseNumber(form.monthlyRent)) : null,
         maintenanceFee: parseNumber(form.maintenanceFee) ? Number(parseNumber(form.maintenanceFee)) : null,
+        monthlyPaymentDay: form.monthlyPaymentDay ? Number(form.monthlyPaymentDay) : null,
         startDate: form.startDate,
         endDate: form.endDate,
       };
@@ -181,6 +185,7 @@ export default function ContractPage() {
         jeonseDeposit: parseNumber(form.jeonseDeposit) ? Number(parseNumber(form.jeonseDeposit)) : null,
         monthlyRent: monthlyRent,
         maintenanceFee: maintenanceFee,
+        monthlyPaymentDay: form.monthlyPaymentDay ? Number(form.monthlyPaymentDay) : null,
         startDate: form.startDate,
         endDate: form.endDate,
       });
@@ -209,7 +214,7 @@ export default function ContractPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -272,6 +277,10 @@ export default function ContractPage() {
                 {currentContract.maintenanceFee ? `${formatNumber(currentContract.maintenanceFee)}원` : '-'}
               </p>
             </div>
+          </div>
+
+          <div className="mt-3 text-sm text-emerald-50">
+            월세 납부일: {currentContract.monthlyPaymentDay ? `매월 ${currentContract.monthlyPaymentDay}일` : '-'}
           </div>
 
           {/* 계약 기간 */}
@@ -375,6 +384,12 @@ export default function ContractPage() {
                           <p className="text-xs text-gray-400">월세</p>
                           <p className="font-medium text-gray-700">
                             {contract.monthlyRent ? `${formatNumber(contract.monthlyRent)}원` : '-'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">월세 납부일</p>
+                          <p className="font-medium text-gray-700">
+                            {contract.monthlyPaymentDay ? `매월 ${contract.monthlyPaymentDay}일` : '-'}
                           </p>
                         </div>
                         <div>
@@ -619,6 +634,20 @@ export default function ContractPage() {
 
               {(form.monthlyRent || form.maintenanceFee) && (
                 <div className="bg-emerald-50 rounded-xl p-4">
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-emerald-900 mb-2">월세 납부일</label>
+                    <div className="relative max-w-[160px]">
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={form.monthlyPaymentDay}
+                        onChange={(e) => setForm({ ...form, monthlyPaymentDay: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-white border border-emerald-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 text-sm">일</span>
+                    </div>
+                  </div>
                   <p className="text-sm font-medium text-emerald-800">비용관리 자동 연동</p>
                   <p className="text-xs text-emerald-600">
                     월세/관리비는 저장 시 비용관리 탭의 반복 납부 일정으로 자동 반영됩니다.

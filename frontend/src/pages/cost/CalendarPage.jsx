@@ -52,6 +52,8 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [modalMode, setModalMode] = useState('view'); // 'view', 'detail'
   const [selectedPayment, setSelectedPayment] = useState(null); // 상세 보기용
+  const [editingSchedule, setEditingSchedule] = useState({ paymentDay: '', dueDate: '' });
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   // 필터 상태
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -101,6 +103,8 @@ export default function CalendarPage() {
     setSelectedDate(null);
     setModalMode('view');
     setSelectedPayment(null);
+    setEditingSchedule({ paymentDay: '', dueDate: '' });
+    setSavingSchedule(false);
   };
 
   const handleBackdropClick = (e) => {
@@ -142,10 +146,53 @@ export default function CalendarPage() {
     }
   };
 
+  useEffect(() => {
+    if (!selectedPayment) return;
+    setEditingSchedule({
+      paymentDay: selectedPayment.paymentDay ? String(selectedPayment.paymentDay) : '',
+      dueDate: selectedPayment.dueDate || '',
+    });
+  }, [selectedPayment]);
+
+  const handleScheduleSave = async () => {
+    if (!selectedPayment || selectedPayment.id <= 0) return;
+
+    const paymentDayValue = editingSchedule.paymentDay ? Number(editingSchedule.paymentDay) : null;
+    if (paymentDayValue !== null && (paymentDayValue < 1 || paymentDayValue > 31)) {
+      alert('납부일은 1일부터 31일 사이로 입력해주세요.');
+      return;
+    }
+
+    setSavingSchedule(true);
+    try {
+      const response = await api.put(`/payments/${selectedPayment.id}`, {
+        name: selectedPayment.name,
+        category: selectedPayment.category,
+        amount: Number(selectedPayment.amount),
+        paymentDay: paymentDayValue,
+        isRecurring: selectedPayment.isRecurring ?? false,
+        autoPay: selectedPayment.autoPay ?? false,
+        dueDate: editingSchedule.dueDate || null,
+        status: selectedPayment.status,
+        sourceType: selectedPayment.sourceType,
+        sourceId: selectedPayment.sourceId,
+      });
+
+      const updatedPayment = response.data;
+      setSelectedPayment(updatedPayment);
+      await fetchCalendarData();
+    } catch (err) {
+      alert('날짜 수정에 실패했습니다.');
+      console.error(err);
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
   if (calendarLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -230,10 +277,10 @@ export default function CalendarPage() {
   return (
     <div className="space-y-4">
       {/* Month Summary */}
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl p-5 text-white">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-purple-100 text-sm">{calendarYear}년 {monthNames[calendarMonth - 1]} 납부 현황</p>
+            <p className="text-blue-100 text-sm">{calendarYear}년 {monthNames[calendarMonth - 1]} 납부 현황</p>
             <p className="text-3xl font-bold mt-1">{(monthSummary.total || 0).toLocaleString()}원</p>
           </div>
           <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -242,15 +289,15 @@ export default function CalendarPage() {
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-white bg-opacity-20 rounded-xl p-3">
-            <p className="text-purple-100 text-xs">납부 완료</p>
+            <p className="text-blue-100 text-xs">납부 완료</p>
             <p className="text-xl font-semibold">{(monthSummary.paid || 0).toLocaleString()}원</p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-xl p-3">
-            <p className="text-purple-100 text-xs">납부 예정</p>
+            <p className="text-blue-100 text-xs">납부 예정</p>
             <p className="text-xl font-semibold">{(monthSummary.upcoming || 0).toLocaleString()}원</p>
           </div>
           <div className="bg-white bg-opacity-20 rounded-xl p-3">
-            <p className="text-purple-100 text-xs">미납</p>
+            <p className="text-blue-100 text-xs">미납</p>
             <p className="text-xl font-semibold">
               {payments.filter(p => p.status.toUpperCase() === 'OVERDUE')
                 .reduce((sum, p) => sum + Number(p.amount), 0).toLocaleString()}원
@@ -303,8 +350,8 @@ export default function CalendarPage() {
             onClick={() => setCategoryFilter(option.value)}
             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5 ${
               categoryFilter === option.value
-                ? 'bg-purple-500 text-white'
-                : 'bg-white text-gray-600 border border-gray-200 hover:border-purple-300'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-300'
             }`}
           >
             <span>{option.icon}</span>
@@ -334,7 +381,7 @@ export default function CalendarPage() {
               setCalendarYear(now.getFullYear());
               setCalendarMonth(now.getMonth() + 1);
             }}
-            className="text-lg font-semibold text-gray-900 hover:text-purple-600 transition-colors px-3 py-1 rounded-lg hover:bg-purple-50"
+            className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors px-3 py-1 rounded-lg hover:bg-blue-50"
           >
             {calendarYear}년 {monthNames[calendarMonth - 1]}
           </button>
@@ -359,12 +406,12 @@ export default function CalendarPage() {
               key={idx}
               onClick={() => handleDateClick(dayInfo)}
               className={`min-h-[80px] p-1 border-b border-r border-gray-50 cursor-pointer transition-colors ${
-                !dayInfo.isCurrentMonth ? 'bg-gray-50' : 'hover:bg-purple-50'
-              } ${dayInfo.isToday ? 'bg-purple-50' : ''}`}
+                !dayInfo.isCurrentMonth ? 'bg-gray-50' : 'hover:bg-blue-50'
+              } ${dayInfo.isToday ? 'bg-blue-50' : ''}`}
             >
               <div className={`text-sm font-medium mb-1 ${
                 !dayInfo.isCurrentMonth ? 'text-gray-300' :
-                dayInfo.isToday ? 'text-purple-600' :
+                dayInfo.isToday ? 'text-blue-600' :
                 idx % 7 === 0 ? 'text-red-500' :
                 idx % 7 === 6 ? 'text-blue-500' : 'text-gray-700'
               }`}>
@@ -480,7 +527,7 @@ export default function CalendarPage() {
                               setSelectedPayment(payment);
                               setModalMode('detail');
                             }}
-                            className="bg-white rounded-2xl p-4 border border-gray-200 cursor-pointer hover:border-purple-300 hover:shadow-md transition-all"
+                            className="bg-white rounded-2xl p-4 border border-gray-200 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -497,7 +544,7 @@ export default function CalendarPage() {
                                   <p className="font-semibold text-gray-900">{payment.name}</p>
                                   <div className="flex items-center gap-2 text-sm">
                                     <span className="text-gray-500">{catInfo.label}</span>
-                                    {payment.isRecurring && <span className="text-indigo-500">🔄 정기</span>}
+                                    {payment.isRecurring && <span className="text-blue-500">🔄 정기</span>}
                                   </div>
                                 </div>
                               </div>
@@ -556,7 +603,7 @@ export default function CalendarPage() {
 
                   {/* 원본 데이터 출처 안내 */}
                   {selectedPayment.sourceType && (
-                    <div className="bg-indigo-50 rounded-xl p-3 flex items-center gap-2">
+                    <div className="bg-blue-50 rounded-xl p-3 flex items-center gap-2">
                       <span className="text-lg">
                         {selectedPayment.sourceType === 'LOAN' ? '🏦' :
                          selectedPayment.sourceType === 'CONTRACT' ? '📋' :
@@ -564,13 +611,13 @@ export default function CalendarPage() {
                          selectedPayment.sourceType === 'MAINTENANCE' ? '🔧' : '📌'}
                       </span>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-indigo-800">
+                        <p className="text-sm font-medium text-blue-800">
                           {selectedPayment.sourceType === 'LOAN' ? '대출/이자' :
                            selectedPayment.sourceType === 'CONTRACT' ? '계약 정보' :
                            selectedPayment.sourceType === 'UTILITY' ? '공과금' :
                            selectedPayment.sourceType === 'MAINTENANCE' ? '유지보수 (임차인 부담)' : '연동됨'}에서 생성됨
                         </p>
-                        <p className="text-xs text-indigo-600">원본 수정/삭제는 해당 페이지에서 가능합니다</p>
+                        <p className="text-xs text-blue-600">납부일은 여기서 조정 가능하며, 원본 수정/삭제는 해당 페이지에서 가능합니다</p>
                       </div>
                     </div>
                   )}
@@ -607,6 +654,41 @@ export default function CalendarPage() {
                     </div>
                   </div>
 
+                  {selectedPayment.id > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+                      <h4 className="font-semibold text-gray-700">날짜 수정</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">매월 납부일</p>
+                          <input
+                            type="number"
+                            min="1"
+                            max="31"
+                            value={editingSchedule.paymentDay}
+                            onChange={(e) => setEditingSchedule((prev) => ({ ...prev, paymentDay: e.target.value }))}
+                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">지정 납부일</p>
+                          <input
+                            type="date"
+                            value={editingSchedule.dueDate}
+                            onChange={(e) => setEditingSchedule((prev) => ({ ...prev, dueDate: e.target.value }))}
+                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleScheduleSave}
+                        disabled={savingSchedule}
+                        className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                      >
+                        {savingSchedule ? '저장 중...' : '날짜 저장'}
+                      </button>
+                    </div>
+                  )}
+
                   {/* 상태 변경 */}
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-3">상태 변경</h4>
@@ -630,8 +712,8 @@ export default function CalendarPage() {
                   </div>
 
                   {/* 관련 페이지 바로가기 */}
-                  <div className="bg-purple-50 rounded-2xl p-4">
-                    <h4 className="font-semibold text-purple-800 mb-3">관련 정보 보기</h4>
+                  <div className="bg-blue-50 rounded-2xl p-4">
+                    <h4 className="font-semibold text-blue-800 mb-3">관련 정보 보기</h4>
                     <div className="grid grid-cols-2 gap-2">
                       {selectedPayment.category === 'RENT' && (
                         <a
@@ -680,7 +762,7 @@ export default function CalendarPage() {
                       )}
                       <a
                         href="/cost/overview"
-                        className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl text-purple-600 hover:bg-purple-50 transition-colors"
+                        className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl text-blue-600 hover:bg-blue-50 transition-colors"
                       >
                         <span>📊</span>
                         <span className="text-sm font-medium">비용 요약</span>
@@ -699,13 +781,13 @@ export default function CalendarPage() {
                         selectedPayment.sourceType === 'UTILITY' || selectedPayment.category === 'UTILITY' ? '/cost/utilities' :
                         '/cost/overview'
                       }
-                      className="block w-full py-4 text-center text-white bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl font-medium hover:from-indigo-600 hover:to-purple-600 transition-colors"
+                      className="block w-full py-4 text-center text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-colors"
                     >
                       원본 페이지에서 수정/삭제
                     </a>
                   ) : (
-                    <div className="bg-indigo-50 rounded-xl p-4 text-center">
-                      <p className="text-sm text-indigo-600 flex items-center justify-center gap-2">
+                    <div className="bg-blue-50 rounded-xl p-4 text-center">
+                      <p className="text-sm text-blue-600 flex items-center justify-center gap-2">
                         <span>🔄</span>
                         정기 납부 항목입니다. 상태 변경 시 실제 내역으로 등록됩니다.
                       </p>
