@@ -2,15 +2,19 @@ package com.starter.service;
 
 import com.starter.domain.Contract;
 import com.starter.domain.DepositSource;
+import com.starter.domain.Payment;
 import com.starter.domain.User;
 import com.starter.dto.request.ContractCreateRequest;
 import com.starter.dto.response.ContractResponse;
 import com.starter.dto.response.DepositSourceResponse;
+import com.starter.enums.PaymentCategory;
+import com.starter.enums.PaymentStatus;
 import com.starter.repository.ContractRepository;
 import com.starter.repository.DepositSourceRepository;
 import com.starter.repository.UserRepository;
 import com.starter.repository.ChecklistRepository;
 import com.starter.repository.DocumentRepository;
+import com.starter.repository.PaymentRepository;
 import com.starter.repository.SpecialTermRepository;
 import com.starter.repository.MaintenanceRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +22,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,6 +39,7 @@ public class ContractService {
     private final DocumentRepository documentRepository;
     private final SpecialTermRepository specialTermRepository;
     private final MaintenanceRepository maintenanceRepository;
+    private final PaymentRepository paymentRepository;
     @Lazy
     private final ChecklistService checklistService;
 
@@ -68,6 +74,7 @@ public class ContractService {
 
         // 기본 체크리스트 초기화
         checklistService.initializeDefaultChecklists(savedContract);
+        syncContractPayments(user, savedContract.getId(), request.getMonthlyRent(), request.getMaintenanceFee());
 
         return toResponse(savedContract);
     }
@@ -104,6 +111,7 @@ public class ContractService {
         contract.setEndDate(request.getEndDate());
 
         Contract saved = contractRepository.save(contract);
+        syncContractPayments(contract.getUser(), contract.getId(), request.getMonthlyRent(), request.getMaintenanceFee());
         return toResponse(saved);
     }
 
@@ -121,8 +129,71 @@ public class ContractService {
         specialTermRepository.deleteByContractId(contractId);
         maintenanceRepository.deleteByContractId(contractId);
         depositSourceRepository.deleteByContractId(contractId);
+        paymentRepository.deleteByUserIdAndSourceTypeAndSourceId(userId, "CONTRACT", contractId);
 
         contractRepository.delete(contract);
+    }
+
+    private void syncContractPayments(User user, Long contractId, BigDecimal monthlyRent, BigDecimal maintenanceFee) {
+        List<Payment> existing = paymentRepository.findByUserIdAndSourceTypeAndSourceId(user.getId(), "CONTRACT", contractId);
+        syncContractPaymentByCategory(existing, user, contractId, PaymentCategory.RENT, "월세", monthlyRent);
+        syncContractPaymentByCategory(existing, user, contractId, PaymentCategory.MAINTENANCE, "관리비", maintenanceFee);
+    }
+
+    private void syncContractPaymentByCategory(
+            List<Payment> existing,
+            User user,
+            Long contractId,
+            PaymentCategory category,
+            String name,
+            BigDecimal amount
+    ) {
+        List<Payment> payments = existing.stream()
+                .filter(payment -> payment.getCategory() == category)
+                .collect(Collectors.toList());
+
+        boolean hasAmount = amount != null && amount.compareTo(BigDecimal.ZERO) > 0;
+        if (!hasAmount) {
+            payments.forEach(paymentRepository::delete);
+            return;
+        }
+
+        Payment target;
+        if (payments.isEmpty()) {
+            target = Payment.builder()
+                    .user(user)
+                    .name(name)
+                    .category(category)
+                    .amount(amount)
+                    .paymentDay(25)
+                    .isRecurring(true)
+                    .autoPay(false)
+                    .status(PaymentStatus.UPCOMING)
+                    .sourceType("CONTRACT")
+                    .sourceId(contractId)
+                    .build();
+        } else {
+            target = payments.get(0);
+            target.setName(name);
+            target.setAmount(amount);
+            target.setIsRecurring(true);
+            target.setSourceType("CONTRACT");
+            target.setSourceId(contractId);
+            if (target.getPaymentDay() == null) {
+                target.setPaymentDay(25);
+            }
+            if (target.getStatus() == null) {
+                target.setStatus(PaymentStatus.UPCOMING);
+            }
+            if (target.getAutoPay() == null) {
+                target.setAutoPay(false);
+            }
+            if (payments.size() > 1) {
+                payments.stream().skip(1).forEach(paymentRepository::delete);
+            }
+        }
+
+        paymentRepository.save(target);
     }
 
     private ContractResponse toResponse(Contract contract) {
