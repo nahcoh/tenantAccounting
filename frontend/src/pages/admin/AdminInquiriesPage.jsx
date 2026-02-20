@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import api from '../../api';
 
 const TYPE_LABELS = {
@@ -23,7 +23,7 @@ export default function AdminInquiriesPage() {
   const [replyStatus, setReplyStatus] = useState('ANSWERED');
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchInquiries = async () => {
+  const fetchInquiries = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -37,11 +37,11 @@ export default function AdminInquiriesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, typeFilter]);
 
   useEffect(() => {
     fetchInquiries();
-  }, [statusFilter, typeFilter]);
+  }, [fetchInquiries]);
 
   const openReply = (inquiry) => {
     setSelectedInquiry(inquiry);
