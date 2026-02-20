@@ -234,7 +234,7 @@ export default function UtilitiesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -267,7 +267,7 @@ export default function UtilitiesPage() {
         </button>
         <button
           onClick={goToToday}
-          className="text-lg font-semibold text-gray-900 hover:text-purple-600 transition-colors px-3 py-1 rounded-lg hover:bg-purple-50"
+          className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors px-3 py-1 rounded-lg hover:bg-blue-50"
         >
           {year}년 {monthNames[month - 1]}
         </button>
@@ -307,7 +307,7 @@ export default function UtilitiesPage() {
       {/* 공과금 추가 버튼 */}
       <button
         onClick={() => openAddModal()}
-        className="w-full py-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl font-medium hover:from-purple-600 hover:to-indigo-600 transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2"
+        className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -347,7 +347,7 @@ export default function UtilitiesPage() {
                       typeInfo.color === 'orange' ? 'bg-orange-100' :
                       typeInfo.color === 'blue' ? 'bg-blue-100' :
                       typeInfo.color === 'red' ? 'bg-red-100' :
-                      'bg-purple-100'
+                      'bg-blue-100'
                     }`}>
                       {typeInfo.icon}
                     </div>
@@ -396,7 +396,7 @@ export default function UtilitiesPage() {
                 <div className="flex gap-2 pt-2 border-t border-gray-100">
                   <button
                     onClick={() => openEditModal(utility)}
-                    className="flex-1 py-2.5 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded-xl transition-colors"
+                    className="flex-1 py-2.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
                   >
                     수정
                   </button>
@@ -420,7 +420,7 @@ export default function UtilitiesPage() {
                   <button
                     key={type.value}
                     onClick={() => openAddModal(type.value)}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-600 hover:border-purple-300 hover:text-purple-600 transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors flex items-center gap-2"
                   >
                     <span>{type.icon}</span>
                     {type.label}
@@ -472,7 +472,7 @@ export default function UtilitiesPage() {
                       onClick={() => setForm({ ...form, type: type.value })}
                       className={`py-3 rounded-xl text-center transition-all ${
                         form.type === type.value
-                          ? 'bg-purple-100 border-2 border-purple-500'
+                          ? 'bg-blue-100 border-2 border-blue-500'
                           : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
                       }`}
                     >
@@ -492,7 +492,7 @@ export default function UtilitiesPage() {
                     value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
                     placeholder="0"
-                    className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 pr-12"
+                    className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 pr-12"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">원</span>
                 </div>
@@ -508,7 +508,7 @@ export default function UtilitiesPage() {
                       value={form.usageAmount}
                       onChange={(e) => setForm({ ...form, usageAmount: e.target.value })}
                       placeholder="0"
-                      className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900 pr-16"
+                      className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 pr-16"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
                       {getTypeInfo(form.type).unit}
@@ -525,7 +525,7 @@ export default function UtilitiesPage() {
                   value={form.provider}
                   onChange={(e) => setForm({ ...form, provider: e.target.value })}
                   placeholder="예: 한국전력, 서울도시가스"
-                  className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                  className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 />
               </div>
 
@@ -536,23 +536,23 @@ export default function UtilitiesPage() {
                   type="date"
                   value={form.paidDate}
                   onChange={(e) => setForm({ ...form, paidDate: e.target.value })}
-                  className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                  className="w-full px-4 py-3.5 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
                 />
                 <p className="text-xs text-gray-400 mt-1">입력하면 납부완료로 표시됩니다</p>
               </div>
 
               {/* 납부일정 연동 (신규 등록 시에만) */}
               {modalMode === 'add' && form.amount && (
-                <div className="bg-purple-50 rounded-xl p-4">
+                <div className="bg-blue-50 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-sm font-medium text-purple-800">납부일정에 등록</p>
-                      <p className="text-xs text-purple-600">캘린더에 이 공과금 일정을 추가합니다</p>
+                      <p className="text-sm font-medium text-blue-800">납부일정에 등록</p>
+                      <p className="text-xs text-blue-600">캘린더에 이 공과금 일정을 추가합니다</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, syncToCalendar: !form.syncToCalendar })}
-                      className={`w-12 h-6 rounded-full transition-colors ${form.syncToCalendar ? 'bg-purple-500' : 'bg-gray-300'}`}
+                      className={`w-12 h-6 rounded-full transition-colors ${form.syncToCalendar ? 'bg-blue-500' : 'bg-gray-300'}`}
                     >
                       <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.syncToCalendar ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
                     </button>
@@ -560,7 +560,7 @@ export default function UtilitiesPage() {
 
                   {form.syncToCalendar && (
                     <div>
-                      <label className="block text-xs text-purple-700 mb-1.5">납부 예정일</label>
+                      <label className="block text-xs text-blue-700 mb-1.5">납부 예정일</label>
                       <div className="relative">
                         <input
                           type="number"
@@ -568,9 +568,9 @@ export default function UtilitiesPage() {
                           onChange={(e) => setForm({ ...form, dueDay: e.target.value })}
                           min="1"
                           max="28"
-                          className="w-full px-3 py-2 bg-white border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                          className="w-full px-3 py-2 bg-white border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-600 text-sm">일</span>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-600 text-sm">일</span>
                       </div>
                     </div>
                   )}
@@ -588,7 +588,7 @@ export default function UtilitiesPage() {
                 <button
                   onClick={modalMode === 'add' ? handleCreate : handleUpdate}
                   disabled={submitting}
-                  className="flex-1 py-4 text-white bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 shadow-lg shadow-purple-200"
+                  className="flex-1 py-4 text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl font-medium hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-blue-200"
                 >
                   {submitting ? '처리 중...' : modalMode === 'add' ? '추가하기' : '수정하기'}
                 </button>

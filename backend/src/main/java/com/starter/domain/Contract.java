@@ -41,6 +41,9 @@ public class Contract {
     @Column(name = "maintenance_fee", precision = 10, scale = 0)
     private BigDecimal maintenanceFee;
 
+    @Column(name = "monthly_payment_day")
+    private Integer monthlyPaymentDay;
+
     @Column(name = "start_date")
     private LocalDate startDate;
 

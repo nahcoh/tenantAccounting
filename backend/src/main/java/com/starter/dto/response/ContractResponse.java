@@ -20,6 +20,7 @@ public class ContractResponse {
     private BigDecimal jeonseDeposit;
     private BigDecimal monthlyRent;
     private BigDecimal maintenanceFee;
+    private Integer monthlyPaymentDay;
     private LocalDate startDate;
     private LocalDate endDate;
     private LocalDateTime createdAt;
