@@ -7,15 +7,13 @@ import api from '../api';
 
 export default function AppLayout() {
   const navigate = useNavigate();
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showPhaseMenu, setShowPhaseMenu] = useState(false);
   const [userName, setUserName] = useState(null);
   const [userRole, setUserRole] = useState('USER');
+  const [userProvider, setUserProvider] = useState('local');
+  const [userProfileImage, setUserProfileImage] = useState('');
   const location = useLocation();
   const contractData = useContract();
-  const currentPhase = PHASES.find((phase) => location.pathname.startsWith(`/${phase.id}`))
-    || PHASES.find((phase) => phase.id === 'cost')
-    || PHASES[0];
 
   useEffect(() => {
     const loadMe = async () => {
@@ -23,9 +21,13 @@ export default function AppLayout() {
         const response = await api.get('/auth/me');
         setUserName(response.data.name || null);
         setUserRole(response.data.role || 'USER');
+        setUserProvider(response.data.provider || 'local');
+        setUserProfileImage(response.data.profileImage || '');
       } catch {
         setUserName(null);
         setUserRole('USER');
+        setUserProvider('local');
+        setUserProfileImage('');
       }
     };
 
@@ -40,6 +42,7 @@ export default function AppLayout() {
     try {
       await api.post('/auth/logout');
     } finally {
+      setShowPhaseMenu(false);
       navigate('/auth');
     }
   };
@@ -48,12 +51,15 @@ export default function AppLayout() {
     if (!window.confirm('정말로 회원 탈퇴하시겠습니까? 모든 데이터가 삭제됩니다.')) return;
     try {
       await api.delete('/users/me');
+      setShowPhaseMenu(false);
       navigate('/auth');
     } catch (err) {
       alert('회원 탈퇴에 실패했습니다. 다시 시도해주세요.');
       console.error('Failed to delete account:', err);
     }
   };
+
+  const providerLabel = userProvider === 'google' ? 'Google' : userProvider === 'kakao' ? 'Kakao' : 'User';
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -62,9 +68,25 @@ export default function AppLayout() {
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="text-2xl">🏠</div>
+              <div className="w-11 h-11 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
+                {userProfileImage ? (
+                  <img
+                    src={userProfileImage}
+                    alt={`${providerLabel} profile`}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="text-sm font-semibold text-slate-500">
+                    {(userName || 'U').charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">
+                <h1
+                  className="text-lg font-semibold text-gray-900 cursor-pointer hover:text-gray-700"
+                  onClick={() => navigate('/cost/calendar')}
+                >
                   {userName ? `환영합니다, ${userName}님!` : '내 집 기록'}
                 </h1>
                 <p className="text-sm text-gray-500">세입자 주거 관리</p>
@@ -76,67 +98,16 @@ export default function AppLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
               </button>
-              <NavLink
-                to="/support/inquiry"
-                className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+              <button
+                onClick={() => setShowPhaseMenu(true)}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+                aria-label="메뉴 열기"
               >
-                문의하기
-              </NavLink>
-              {userRole === 'ADMIN' && (
-                <NavLink
-                  to="/admin/inquiries"
-                  className="px-3 py-2 text-sm font-medium text-blue-700 hover:text-blue-800 hover:bg-blue-50 rounded-lg"
-                >
-                  운영진 문의함
-                </NavLink>
-              )}
-              <div className="relative">
-                <button
-                  onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </button>
-                {showSettingsMenu && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <button
-                      onClick={handleLogout}
-                      className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 rounded-t-lg font-medium"
-                    >
-                      로그아웃
-                    </button>
-                    <button
-                      onClick={handleDeleteAccount}
-                      className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg font-medium border-t border-gray-100"
-                    >
-                      회원 탈퇴
-                    </button>
-                  </div>
-                )}
-              </div>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
             </div>
-          </div>
-        </div>
-
-        {/* Phase Navigation */}
-        <div className="px-6 pb-4">
-          <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl">
-            <div className="flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-medium bg-white text-gray-900 shadow-sm whitespace-nowrap">
-              <span>{currentPhase.icon}</span>
-              <span>{currentPhase.label}</span>
-            </div>
-            <button
-              onClick={() => setShowPhaseMenu(true)}
-              className="px-3 py-3 rounded-lg text-gray-700 hover:bg-white hover:shadow-sm transition-all"
-              aria-label="카테고리 메뉴 열기"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
           </div>
         </div>
       </header>
@@ -156,7 +127,7 @@ export default function AppLayout() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold text-gray-900">카테고리 이동</h3>
+              <h3 className="text-lg font-semibold text-gray-900">메뉴</h3>
               <button
                 onClick={() => setShowPhaseMenu(false)}
                 className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"
@@ -184,6 +155,36 @@ export default function AppLayout() {
                   </NavLink>
                 );
               })}
+              <NavLink
+                to="/support/inquiry"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors bg-gray-50 text-gray-700 hover:bg-gray-100"
+              >
+                <span className="text-lg">💬</span>
+                <span>문의하기</span>
+              </NavLink>
+              {userRole === 'ADMIN' && (
+                <NavLink
+                  to="/admin/inquiries"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors bg-blue-50 text-blue-700 hover:bg-blue-100"
+                >
+                  <span className="text-lg">📥</span>
+                  <span>운영진 문의함</span>
+                </NavLink>
+              )}
+            </div>
+            <div className="mt-6 pt-4 border-t border-gray-100 space-y-2">
+              <button
+                onClick={handleLogout}
+                className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 rounded-xl font-medium"
+              >
+                로그아웃
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 rounded-xl font-medium"
+              >
+                회원 탈퇴
+              </button>
             </div>
           </div>
         </div>
