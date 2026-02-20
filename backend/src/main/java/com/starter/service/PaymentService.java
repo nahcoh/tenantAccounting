@@ -142,29 +142,24 @@ public class PaymentService {
     }
 
     public PaymentOverviewResponse getOverview(Long userId, int year, int month) {
-        // 현재월 데이터
-        LocalDate currentMonthStart = LocalDate.of(year, month, 1);
-        LocalDate currentMonthEnd = currentMonthStart.with(TemporalAdjusters.lastDayOfMonth());
-        List<Payment> currentMonthPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, currentMonthStart, currentMonthEnd);
-
+        List<PaymentResponse> currentMonthPayments = buildMonthlyPaymentResponses(userId, year, month);
         BigDecimal currentMonthTotal = currentMonthPayments.stream()
-                .map(Payment::getAmount)
+                .map(PaymentResponse::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal currentMonthPaid = currentMonthPayments.stream()
                 .filter(p -> p.getStatus() == PaymentStatus.PAID)
-                .map(Payment::getAmount)
+                .map(PaymentResponse::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal currentMonthUpcoming = currentMonthTotal.subtract(currentMonthPaid);
 
-        // 전월 데이터
-        LocalDate prevMonthStart = currentMonthStart.minusMonths(1);
-        LocalDate prevMonthEnd = prevMonthStart.with(TemporalAdjusters.lastDayOfMonth());
-        List<Payment> prevMonthPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, prevMonthStart, prevMonthEnd);
-
+        LocalDate currentMonthStart = LocalDate.of(year, month, 1);
+        LocalDate currentMonthEnd = currentMonthStart.with(TemporalAdjusters.lastDayOfMonth());
+        LocalDate prevMonth = currentMonthStart.minusMonths(1);
+        List<PaymentResponse> prevMonthPayments = buildMonthlyPaymentResponses(userId, prevMonth.getYear(), prevMonth.getMonthValue());
         BigDecimal previousMonthTotal = prevMonthPayments.stream()
-                .map(Payment::getAmount)
+                .map(PaymentResponse::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // 전월 대비 변화율 계산
@@ -177,17 +172,18 @@ public class PaymentService {
 
         // 카테고리별 지출
         Map<String, BigDecimal> categoryBreakdown = new HashMap<>();
-        for (Payment payment : currentMonthPayments) {
+        for (PaymentResponse payment : currentMonthPayments) {
             String category = payment.getCategory().name();
             categoryBreakdown.merge(category, payment.getAmount(), BigDecimal::add);
         }
 
-        // 연간 누적 (1월부터 현재월까지)
-        LocalDate yearStart = LocalDate.of(year, 1, 1);
-        List<Payment> yearPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, yearStart, currentMonthEnd);
-        BigDecimal yearToDateTotal = yearPayments.stream()
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal yearToDateTotal = BigDecimal.ZERO;
+        for (int m = 1; m <= month; m++) {
+            BigDecimal monthlyTotal = buildMonthlyPaymentResponses(userId, year, m).stream()
+                    .map(PaymentResponse::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            yearToDateTotal = yearToDateTotal.add(monthlyTotal);
+        }
 
         // 최근 납부 내역 (최근 5건)
         List<PaymentResponse> recentPayments = currentMonthPayments.stream()
@@ -198,7 +194,6 @@ public class PaymentService {
                     return b.getDueDate().compareTo(a.getDueDate());
                 })
                 .limit(5)
-                .map(this::toPaymentResponse)
                 .collect(Collectors.toList());
 
         // 계약 정보 기반 월 고정 지출
@@ -227,6 +222,61 @@ public class PaymentService {
                 .recentPayments(recentPayments)
                 .monthlyFixedCost(monthlyFixedCost)
                 .build();
+    }
+
+    private List<PaymentResponse> buildMonthlyPaymentResponses(Long userId, int year, int month) {
+        LocalDate monthStart = LocalDate.of(year, month, 1);
+        LocalDate monthEnd = monthStart.with(TemporalAdjusters.lastDayOfMonth());
+        LocalDate today = LocalDate.now();
+
+        List<Payment> actualPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, monthStart, monthEnd);
+        List<Payment> recurringPayments = paymentRepository.findByUserIdAndIsRecurring(userId, true);
+
+        List<PaymentResponse> monthlyPayments = new ArrayList<>();
+
+        for (Payment payment : actualPayments) {
+            PaymentResponse response = toPaymentResponse(payment);
+            if (response.getStatus() == PaymentStatus.UPCOMING &&
+                    response.getDueDate() != null &&
+                    response.getDueDate().isBefore(today)) {
+                response.setStatus(PaymentStatus.OVERDUE);
+            }
+            monthlyPayments.add(response);
+        }
+
+        for (Payment recurring : recurringPayments) {
+            Integer paymentDay = recurring.getPaymentDay();
+            if (paymentDay == null && recurring.getDueDate() != null) {
+                paymentDay = recurring.getDueDate().getDayOfMonth();
+            }
+            if (paymentDay == null) continue;
+
+            int adjustedDay = Math.min(paymentDay, monthEnd.getDayOfMonth());
+            LocalDate recurringDueDate = LocalDate.of(year, month, adjustedDay);
+
+            boolean alreadyExists = actualPayments.stream()
+                    .anyMatch(p -> p.getName().equals(recurring.getName()) &&
+                            p.getCategory() == recurring.getCategory());
+
+            if (!alreadyExists) {
+                PaymentStatus status = recurringDueDate.isBefore(today) ? PaymentStatus.OVERDUE : PaymentStatus.UPCOMING;
+
+                PaymentResponse virtualPayment = new PaymentResponse();
+                virtualPayment.setId(recurring.getId() * -1);
+                virtualPayment.setName(recurring.getName());
+                virtualPayment.setCategory(recurring.getCategory());
+                virtualPayment.setAmount(recurring.getAmount());
+                virtualPayment.setPaymentDay(adjustedDay);
+                virtualPayment.setStatus(status);
+                virtualPayment.setAutoPay(recurring.getAutoPay());
+                virtualPayment.setIsRecurring(true);
+                virtualPayment.setDueDate(recurringDueDate);
+                virtualPayment.setPaidDate(null);
+                monthlyPayments.add(virtualPayment);
+            }
+        }
+
+        return monthlyPayments;
     }
 
     public List<PaymentResponse> getAllPayments(Long userId, PaymentStatus status) {

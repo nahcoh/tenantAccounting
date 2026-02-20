@@ -64,8 +64,6 @@ export default function ContractPage() {
     maintenanceFee: '',
     startDate: '',
     endDate: '',
-    paymentDay: '25',
-    syncToCalendar: true,
   });
 
   const fetchData = async () => {
@@ -99,8 +97,6 @@ export default function ContractPage() {
       maintenanceFee: '',
       startDate: '',
       endDate: '',
-      paymentDay: '25',
-      syncToCalendar: true,
     });
     setEditingContract(null);
     setModalMode('add');
@@ -116,8 +112,6 @@ export default function ContractPage() {
       maintenanceFee: contract.maintenanceFee ? formatNumber(contract.maintenanceFee) : '',
       startDate: contract.startDate || '',
       endDate: contract.endDate || '',
-      paymentDay: '25',
-      syncToCalendar: true,
     });
     setEditingContract(contract);
     setModalMode('edit');
@@ -159,41 +153,7 @@ export default function ContractPage() {
         endDate: form.endDate,
       };
 
-      const response = await api.post('/contracts', contractData);
-
-      // 납부일정에 월세/관리비 등록
-      if (form.syncToCalendar) {
-        const paymentDay = Number(form.paymentDay) || 25;
-        const contractId = response.data.id;
-
-        if (contractData.monthlyRent && contractData.monthlyRent > 0) {
-          await api.post('/payments', {
-            name: '월세',
-            category: 'RENT',
-            amount: contractData.monthlyRent,
-            paymentDay: paymentDay,
-            isRecurring: true,
-            autoPay: false,
-            status: 'UPCOMING',
-            sourceType: 'CONTRACT',
-            sourceId: contractId,
-          });
-        }
-
-        if (contractData.maintenanceFee && contractData.maintenanceFee > 0) {
-          await api.post('/payments', {
-            name: '관리비',
-            category: 'MAINTENANCE',
-            amount: contractData.maintenanceFee,
-            paymentDay: paymentDay,
-            isRecurring: true,
-            autoPay: false,
-            status: 'UPCOMING',
-            sourceType: 'CONTRACT',
-            sourceId: contractId,
-          });
-        }
-      }
+      await api.post('/contracts', contractData);
 
       await fetchData();
       closeModal();
@@ -225,35 +185,6 @@ export default function ContractPage() {
         endDate: form.endDate,
       });
 
-      // 연관된 납부일정 업데이트
-      try {
-        const paymentsRes = await api.get(`/payments/source/CONTRACT/${editingContract.id}`);
-        const payments = paymentsRes.data;
-        for (const payment of payments) {
-          if (payment.category === 'RENT' && monthlyRent) {
-            await api.put(`/payments/${payment.id}`, {
-              name: '월세',
-              category: 'RENT',
-              amount: monthlyRent,
-              paymentDay: payment.paymentDay,
-              isRecurring: true,
-              autoPay: payment.autoPay,
-            });
-          } else if (payment.category === 'MAINTENANCE' && maintenanceFee) {
-            await api.put(`/payments/${payment.id}`, {
-              name: '관리비',
-              category: 'MAINTENANCE',
-              amount: maintenanceFee,
-              paymentDay: payment.paymentDay,
-              isRecurring: true,
-              autoPay: payment.autoPay,
-            });
-          }
-        }
-      } catch (syncErr) {
-        console.error('납부일정 동기화 실패:', syncErr);
-      }
-
       await fetchData();
       closeModal();
     } catch (err) {
@@ -267,9 +198,6 @@ export default function ContractPage() {
   const handleDelete = async (id) => {
     if (!window.confirm('이 계약 정보를 삭제하시겠습니까?\n연관된 체크리스트, 문서, 납부일정도 함께 삭제됩니다.')) return;
     try {
-      // 관련 납부일정 먼저 삭제
-      await api.delete(`/payments/source/CONTRACT/${id}`);
-      // 계약 삭제
       await api.delete(`/contracts/${id}`);
       await fetchData();
     } catch (err) {
@@ -689,39 +617,12 @@ export default function ContractPage() {
                 </div>
               </div>
 
-              {/* 납부일정 연동 (신규 등록 시에만) */}
-              {modalMode === 'add' && (form.monthlyRent || form.maintenanceFee) && (
+              {(form.monthlyRent || form.maintenanceFee) && (
                 <div className="bg-emerald-50 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="text-sm font-medium text-emerald-800">납부일정에 자동 등록</p>
-                      <p className="text-xs text-emerald-600">월세/관리비를 캘린더에 반복 일정으로 등록합니다</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, syncToCalendar: !form.syncToCalendar })}
-                      className={`w-12 h-6 rounded-full transition-colors ${form.syncToCalendar ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                    >
-                      <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${form.syncToCalendar ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
-                    </button>
-                  </div>
-
-                  {form.syncToCalendar && (
-                    <div>
-                      <label className="block text-xs text-emerald-700 mb-1.5">납부일</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          value={form.paymentDay}
-                          onChange={(e) => setForm({ ...form, paymentDay: e.target.value })}
-                          min="1"
-                          max="28"
-                          className="w-full px-3 py-2 bg-white border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 text-sm">일</span>
-                      </div>
-                    </div>
-                  )}
+                  <p className="text-sm font-medium text-emerald-800">비용관리 자동 연동</p>
+                  <p className="text-xs text-emerald-600">
+                    월세/관리비는 저장 시 비용관리 탭의 반복 납부 일정으로 자동 반영됩니다.
+                  </p>
                 </div>
               )}
 
