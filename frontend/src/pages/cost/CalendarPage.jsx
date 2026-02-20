@@ -54,6 +54,13 @@ export default function CalendarPage() {
   const [selectedPayment, setSelectedPayment] = useState(null); // 상세 보기용
   const [editingSchedule, setEditingSchedule] = useState({ paymentDay: '', dueDate: '' });
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [showDateNavigator, setShowDateNavigator] = useState(false);
+  const [jumpDate, setJumpDate] = useState(() => {
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
 
   // 필터 상태
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -271,6 +278,30 @@ export default function CalendarPage() {
     else { setCalendarMonth(calendarMonth + 1); }
   };
 
+  const moveLastYear = () => {
+    setCalendarYear((prev) => prev - 1);
+  };
+
+  const moveToday = () => {
+    const now = new Date();
+    setCalendarYear(now.getFullYear());
+    setCalendarMonth(now.getMonth() + 1);
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    setJumpDate(`${yyyy}-${mm}-${dd}`);
+    setShowDateNavigator(false);
+  };
+
+  const applyJumpDate = () => {
+    if (!jumpDate) return;
+    const selected = new Date(jumpDate);
+    if (Number.isNaN(selected.getTime())) return;
+    setCalendarYear(selected.getFullYear());
+    setCalendarMonth(selected.getMonth() + 1);
+    setShowDateNavigator(false);
+  };
+
   // 모달 내 선택된 날짜의 납부 내역
   const selectedDatePayments = selectedDate?.payments || [];
 
@@ -282,9 +313,6 @@ export default function CalendarPage() {
           <div>
             <p className="text-blue-100 text-sm">{calendarYear}년 {monthNames[calendarMonth - 1]} 납부 현황</p>
             <p className="text-3xl font-bold mt-1">{(monthSummary.total || 0).toLocaleString()}원</p>
-          </div>
-          <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-            <span className="text-3xl">📅</span>
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
@@ -375,16 +403,72 @@ export default function CalendarPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <button
-            onClick={() => {
-              const now = new Date();
-              setCalendarYear(now.getFullYear());
-              setCalendarMonth(now.getMonth() + 1);
-            }}
-            className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors px-3 py-1 rounded-lg hover:bg-blue-50"
-          >
-            {calendarYear}년 {monthNames[calendarMonth - 1]}
-          </button>
+          <div className="relative">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={moveToday}
+                className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors px-3 py-1 rounded-lg hover:bg-blue-50"
+              >
+                {calendarYear}년 {monthNames[calendarMonth - 1]}
+              </button>
+              <button
+                onClick={() => setShowDateNavigator((prev) => !prev)}
+                className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100"
+                aria-label="날짜 이동 열기"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+            {showDateNavigator && (
+              <div className="absolute top-11 right-0 w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-4 z-20">
+                <p className="text-sm font-semibold text-gray-800 mb-3">날짜 이동</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    onClick={moveLastYear}
+                    className="px-3 py-2 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    작년
+                  </button>
+                  <button
+                    onClick={moveToday}
+                    className="px-3 py-2 text-sm rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  >
+                    오늘
+                  </button>
+                  <button
+                    onClick={prevMonth}
+                    className="px-3 py-2 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    전월
+                  </button>
+                  <button
+                    onClick={nextMonth}
+                    className="px-3 py-2 text-sm rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  >
+                    다음월
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="jump-date" className="text-xs text-gray-500">원하는 날짜 선택</label>
+                  <input
+                    id="jump-date"
+                    type="date"
+                    value={jumpDate}
+                    onChange={(e) => setJumpDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={applyJumpDate}
+                    className="w-full px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                  >
+                    이 날짜로 이동
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
