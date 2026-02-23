@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
+import java.util.HashMap;
 
 @RestController
 @RequestMapping("/api")
@@ -75,7 +76,7 @@ public class AuthController {
     }
 
     @GetMapping("/auth/me")
-    public ResponseEntity<Map<String, String>> me(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> me(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
@@ -86,11 +87,14 @@ public class AuthController {
                     .findFirst()
                     .map(authority -> authority.getAuthority().replace("ROLE_", ""))
                     .orElse("USER");
-            return ResponseEntity.ok(Map.of(
-                    "email", userPrincipal.getEmail(),
-                    "name", userPrincipal.getDisplayName(),
-                    "role", role
-            ));
+            Map<String, Object> body = new HashMap<>();
+            body.put("email", userPrincipal.getEmail());
+            body.put("name", userPrincipal.getDisplayName());
+            body.put("role", role);
+            body.put("provider", userPrincipal.getProvider() == null ? "local" : userPrincipal.getProvider());
+            String profileImage = extractProfileImage(userPrincipal.getAttributes());
+            body.put("profileImage", profileImage);
+            return ResponseEntity.ok(body);
         }
 
         if (principal instanceof UserDetails userDetails) {
@@ -101,15 +105,63 @@ public class AuthController {
             return ResponseEntity.ok(Map.of(
                     "email", userDetails.getUsername(),
                     "name", userDetails.getUsername(),
-                    "role", role
+                    "role", role,
+                    "provider", "local",
+                    "profileImage", ""
             ));
         }
 
         return ResponseEntity.ok(Map.of(
                 "email", principal.toString(),
                 "name", principal.toString(),
-                "role", "USER"
+                "role", "USER",
+                "provider", "local",
+                "profileImage", ""
         ));
+    }
+
+    @SuppressWarnings("unchecked")
+    private String extractProfileImage(Map<String, Object> attributes) {
+        if (attributes == null || attributes.isEmpty()) {
+            return "";
+        }
+
+        Object googlePicture = attributes.get("picture");
+        if (googlePicture instanceof String picture && !picture.isBlank()) {
+            return picture;
+        }
+
+        Object propertiesObj = attributes.get("properties");
+        if (propertiesObj instanceof Map<?, ?> propertiesRaw) {
+            Map<String, Object> properties = (Map<String, Object>) propertiesRaw;
+            Object kakaoProfileImage = properties.get("profile_image");
+            if (kakaoProfileImage instanceof String image && !image.isBlank()) {
+                return image;
+            }
+            Object kakaoThumbImage = properties.get("thumbnail_image");
+            if (kakaoThumbImage instanceof String image && !image.isBlank()) {
+                return image;
+            }
+        }
+
+        Object kakaoAccountObj = attributes.get("kakao_account");
+        if (kakaoAccountObj instanceof Map<?, ?> kakaoAccountRaw) {
+            Map<String, Object> kakaoAccount = (Map<String, Object>) kakaoAccountRaw;
+            Object profileObj = kakaoAccount.get("profile");
+            if (profileObj instanceof Map<?, ?> profileRaw) {
+                Map<String, Object> profile = (Map<String, Object>) profileRaw;
+                Object profileImageUrl = profile.get("profile_image_url");
+                if (profileImageUrl instanceof String image && !image.isBlank()) {
+                    return image;
+                }
+                Object thumbnailImageUrl = profile.get("thumbnail_image_url");
+                if (thumbnailImageUrl instanceof String image && !image.isBlank()) {
+                    return image;
+                }
+            }
+        }
+
+        return "";
     }
 
     @DeleteMapping("/users/me")

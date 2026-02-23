@@ -1,66 +1,39 @@
-name: Deploy
+name: Backend Deploy
 
 on:
   push:
     branches: [main]
     paths:
-      - 'frontend/**'
       - 'backend/**'
       - 'docker-compose.prod.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: backend-deploy-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  AWS_REGION: ap-northeast-2
-
 jobs:
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      backend: ${{ steps.filter.outputs.backend }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            frontend:
-              - 'frontend/**'
-            backend:
-              - 'backend/**'
-              - 'docker-compose.prod.yml'
-
   deploy-backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
       - name: Select deployment target
         id: env
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "EC2_HOST=${{ secrets.PROD_EC2_HOST }}" >> "$GITHUB_OUTPUT"
-            echo "EC2_USER=${{ secrets.PROD_EC2_USER }}" >> "$GITHUB_OUTPUT"
-            echo "ENVIRONMENT=production" >> "$GITHUB_OUTPUT"
-          else
-            echo "EC2_HOST=${{ secrets.DEV_EC2_HOST }}" >> "$GITHUB_OUTPUT"
-            echo "EC2_USER=${{ secrets.DEV_EC2_USER }}" >> "$GITHUB_OUTPUT"
-            echo "ENVIRONMENT=development" >> "$GITHUB_OUTPUT"
-          fi
+          echo "EC2_HOST=${{ secrets.PROD_EC2_HOST }}" >> "$GITHUB_OUTPUT"
+          echo "EC2_USER=${{ secrets.PROD_EC2_USER }}" >> "$GITHUB_OUTPUT"
+          echo "ENVIRONMENT=production" >> "$GITHUB_OUTPUT"
 
       - name: Create target directory via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ steps.env.outputs.EC2_HOST }}
+          port: ${{ secrets.SSH_PORT }}
           username: ${{ steps.env.outputs.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p /home/${{ steps.env.outputs.EC2_USER }}/ziplog
@@ -69,6 +42,7 @@ jobs:
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ steps.env.outputs.EC2_HOST }}
+          port: ${{ secrets.SSH_PORT }}
           username: ${{ steps.env.outputs.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "backend/**,docker-compose.prod.yml"
@@ -96,6 +70,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         with:
           host: ${{ steps.env.outputs.EC2_HOST }}
+          port: ${{ secrets.SSH_PORT }}
           username: ${{ steps.env.outputs.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: MYSQL_ROOT_PASSWORD,MYSQL_DATABASE,STORAGE_S3_ENABLED,AWS_S3_BUCKET,AWS_S3_PREFIX,AWS_REGION,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,JWT_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,CORS_ALLOWED_ORIGINS,AUTH_COOKIE_DOMAIN,GITHUB_SHA
@@ -205,71 +180,5 @@ jobs:
           echo "## Backend Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "- Environment: ${{ steps.env.outputs.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
           echo "- EC2 Host: ${{ steps.env.outputs.EC2_HOST }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-
-  deploy-frontend:
-    needs: [changes, deploy-backend]
-    if: always() && needs.changes.outputs.frontend == 'true' && (needs.changes.outputs.backend != 'true' || needs.deploy-backend.result == 'success')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Build frontend
-        working-directory: frontend
-        run: |
-          npm ci
-          npm run lint
-          npm run build
-        env:
-          VITE_API_BASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.PROD_API_URL || secrets.DEV_API_URL }}
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Select deployment target
-        id: env
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "S3_BUCKET=${{ secrets.PROD_S3_BUCKET }}" >> "$GITHUB_OUTPUT"
-            echo "CLOUDFRONT_ID=${{ secrets.PROD_CLOUDFRONT_ID }}" >> "$GITHUB_OUTPUT"
-            echo "ENVIRONMENT=production" >> "$GITHUB_OUTPUT"
-          else
-            echo "S3_BUCKET=${{ secrets.DEV_S3_BUCKET }}" >> "$GITHUB_OUTPUT"
-            echo "CLOUDFRONT_ID=${{ secrets.DEV_CLOUDFRONT_ID }}" >> "$GITHUB_OUTPUT"
-            echo "ENVIRONMENT=development" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Deploy to S3
-        run: |
-          aws s3 sync frontend/dist/ s3://${{ steps.env.outputs.S3_BUCKET }} \
-            --delete \
-            --cache-control "public, max-age=31536000, immutable" \
-            --exclude "index.html" \
-            --exclude "*.json"
-
-          aws s3 cp frontend/dist/index.html s3://${{ steps.env.outputs.S3_BUCKET }}/index.html \
-            --cache-control "no-cache, no-store, must-revalidate"
-
-      - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.env.outputs.CLOUDFRONT_ID }} \
-            --paths "/*"
-
-      - name: Frontend deployment summary
-        run: |
-          echo "## Frontend Deployment Complete" >> $GITHUB_STEP_SUMMARY
-          echo "- Environment: ${{ steps.env.outputs.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
-          echo "- S3 Bucket: ${{ steps.env.outputs.S3_BUCKET }}" >> $GITHUB_STEP_SUMMARY
           echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
