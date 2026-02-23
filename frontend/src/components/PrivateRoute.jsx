@@ -1,28 +1,8 @@
-import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import api from '../api';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function PrivateRoute() {
-  const [status, setStatus] = useState('checking');
-
-  useEffect(() => {
-    let mounted = true;
-
-    const verify = async () => {
-      try {
-        await api.get('/auth/me');
-        if (mounted) setStatus('authenticated');
-      } catch {
-        if (mounted) setStatus('unauthenticated');
-      }
-    };
-
-    verify();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { status } = useAuth();
 
   if (status === 'checking') {
     return <div className="p-6 text-center text-gray-500">인증 확인 중...</div>;

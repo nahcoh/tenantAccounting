@@ -1,22 +1,26 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from './api';
+import { useAuth } from './contexts/AuthContext';
 
 const OAuth2RedirectHandler = () => {
   const navigate = useNavigate();
+  const { refreshMe } = useAuth();
 
   useEffect(() => {
     const verifySession = async () => {
-      try {
-        await api.get('/auth/me');
-        navigate('/cost/calendar', { replace: true });
-      } catch {
-        navigate('/auth', { replace: true, state: { error: '로그인에 실패했습니다.' } });
+      for (let i = 0; i < 3; i += 1) {
+        const currentUser = await refreshMe({ force: true });
+        if (currentUser) {
+          navigate('/cost/calendar', { replace: true });
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
+      navigate('/auth', { replace: true, state: { error: '로그인에 실패했습니다.' } });
     };
 
     verifySession();
-  }, [navigate]);
+  }, [navigate, refreshMe]);
 
   return (
     <div>

@@ -25,6 +25,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import InquiryWritePage from './pages/support/InquiryWritePage';
 import MyInquiriesPage from './pages/support/MyInquiriesPage';
 import AdminInquiriesPage from './pages/admin/AdminInquiriesPage';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   if (window.location.hostname === 'www.ziplog.kr') {
@@ -33,55 +34,57 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/auth" element={<TenantAuth />} />
-      <Route path="/terms" element={<TermsOfServicePage />} />
-      <Route path="/privacy" element={<PrivacyPolicyPage />} />
-      <Route path="/oauth/redirect" element={<OAuth2RedirectHandler />} />
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<TenantAuth />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/oauth/redirect" element={<OAuth2RedirectHandler />} />
 
-      <Route element={<PrivateRoute />}>
-        <Route element={<AppLayout />}>
-          <Route path="before/*" element={<BeforeLayout />}>
-            <Route index element={<Navigate to="documents" replace />} />
-            <Route path="documents" element={<DocumentsPage />} />
-            <Route path="terms" element={<TermsPage />} />
-            <Route path="checklist" element={<BeforeChecklistPage />} />
-          </Route>
+        <Route element={<PrivateRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="before/*" element={<BeforeLayout />}>
+              <Route index element={<Navigate to="documents" replace />} />
+              <Route path="documents" element={<DocumentsPage />} />
+              <Route path="terms" element={<TermsPage />} />
+              <Route path="checklist" element={<BeforeChecklistPage />} />
+            </Route>
 
-          <Route path="cost/*" element={<CostLayout />}>
-            <Route index element={<Navigate to="calendar" replace />} />
-            <Route path="calendar" element={<CalendarPage />} />
-            <Route path="overview" element={<OverviewPage />} />
-            <Route path="contract" element={<ContractPage />} />
-            <Route path="utilities" element={<UtilitiesPage />} />
-            <Route path="loan" element={<LoanPage />} />
-          </Route>
+            <Route path="cost/*" element={<CostLayout />}>
+              <Route index element={<Navigate to="calendar" replace />} />
+              <Route path="calendar" element={<CalendarPage />} />
+              <Route path="overview" element={<OverviewPage />} />
+              <Route path="contract" element={<ContractPage />} />
+              <Route path="utilities" element={<UtilitiesPage />} />
+              <Route path="loan" element={<LoanPage />} />
+            </Route>
 
-          <Route path="during/*" element={<DuringLayout />}>
-            <Route index element={<Navigate to="maintenance" replace />} />
-            <Route path="maintenance" element={<MaintenancePage />} />
-          </Route>
+            <Route path="during/*" element={<DuringLayout />}>
+              <Route index element={<Navigate to="maintenance" replace />} />
+              <Route path="maintenance" element={<MaintenancePage />} />
+            </Route>
 
-          <Route path="after/*" element={<AfterLayout />}>
-            <Route index element={<Navigate to="checklist" replace />} />
-            <Route path="checklist" element={<ChecklistPage />} />
-          </Route>
+            <Route path="after/*" element={<AfterLayout />}>
+              <Route index element={<Navigate to="checklist" replace />} />
+              <Route path="checklist" element={<ChecklistPage />} />
+            </Route>
 
-          <Route path="support">
-            <Route index element={<Navigate to="inquiry" replace />} />
-            <Route path="inquiry" element={<InquiryWritePage />} />
-            <Route path="my-inquiries" element={<MyInquiriesPage />} />
-          </Route>
+            <Route path="support">
+              <Route index element={<Navigate to="inquiry" replace />} />
+              <Route path="inquiry" element={<InquiryWritePage />} />
+              <Route path="my-inquiries" element={<MyInquiriesPage />} />
+            </Route>
 
-          <Route element={<AdminRoute />}>
-            <Route path="admin/inquiries" element={<AdminInquiriesPage />} />
+            <Route element={<AdminRoute />}>
+              <Route path="admin/inquiries" element={<AdminInquiriesPage />} />
+            </Route>
           </Route>
         </Route>
-      </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </AuthProvider>
   );
 }
 
