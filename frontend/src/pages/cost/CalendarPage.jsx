@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../../api';
 import { getStatusStyle } from '../../lib/utils';
 
@@ -41,6 +41,10 @@ function StatusBadge({ status }) {
 
 export default function CalendarPage() {
   const today = new Date();
+  const perfEnabled = typeof window !== 'undefined' && window.localStorage.getItem('perf_debug') === '1';
+  const mountAtRef = useRef(typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const latestApiMsRef = useRef(null);
+  const renderedLoggedRef = useRef(false);
   const [calendarYear, setCalendarYear] = useState(today.getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(today.getMonth() + 1);
   const [calendarData, setCalendarData] = useState(null);
@@ -67,6 +71,7 @@ export default function CalendarPage() {
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
   const fetchCalendarData = useCallback(async () => {
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
     setCalendarLoading(true);
     setError(null);
     try {
@@ -75,9 +80,11 @@ export default function CalendarPage() {
         ...response.data,
         payments: response.data.payments || [],
       });
+      latestApiMsRef.current = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt;
     } catch (err) {
       setError('데이터를 불러오는 데 실패했습니다.');
       console.error('Failed to fetch calendar data:', err);
+      latestApiMsRef.current = null;
     } finally {
       setCalendarLoading(false);
     }
@@ -304,6 +311,27 @@ export default function CalendarPage() {
     if (!selectedDate?.day) return [];
     return filteredPaymentsByDay.get(selectedDate.day) || [];
   }, [selectedDate, filteredPaymentsByDay]);
+
+  useEffect(() => {
+    if (!perfEnabled || renderedLoggedRef.current || calendarLoading || error || !calendarData) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const uiTotalMs = now - mountAtRef.current;
+    const apiMs = latestApiMsRef.current;
+    console.table({
+      page: 'cost/calendar',
+      month: `${calendarYear}-${String(calendarMonth).padStart(2, '0')}`,
+      api_ms: apiMs ? Math.round(apiMs) : null,
+      ui_total_ms: Math.round(uiTotalMs),
+      payment_count: payments.length,
+      rendered_cells: calendarDays.length,
+    });
+    renderedLoggedRef.current = true;
+  }, [perfEnabled, calendarLoading, error, calendarData, calendarYear, calendarMonth, payments.length, calendarDays.length]);
+
+  useEffect(() => {
+    renderedLoggedRef.current = false;
+    mountAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  }, [calendarYear, calendarMonth]);
 
   if (calendarLoading) {
     return (
