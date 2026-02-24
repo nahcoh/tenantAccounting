@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import api from '../api';
 
-export default function useContract() {
+export default function useContract(options = {}) {
+  const { activeSection = '' } = options;
+  const shouldLoadContractDetails = activeSection === 'before' || activeSection === 'during' || activeSection === 'after';
+
   const [contract, setContract] = useState(null);
   const [contractLoading, setContractLoading] = useState(true);
   const [documents, setDocuments] = useState([]);
@@ -61,9 +64,10 @@ export default function useContract() {
     fetchContracts();
   }, []);
 
-  // Fetch documents, special terms & checklists when contract changes
+  // 계약 상세 데이터는 비용관리 진입 시점에는 지연 로딩하고,
+  // before/during/after 섹션에서만 조회한다.
   useEffect(() => {
-    if (!contract?.id) return;
+    if (!contract?.id || !shouldLoadContractDetails) return;
 
     const fetchDocuments = async () => {
       setDocumentsLoading(true);
@@ -120,7 +124,7 @@ export default function useContract() {
     fetchSpecialTerms();
     fetchChecklists();
     fetchMaintenances();
-  }, [contract?.id]);
+  }, [contract?.id, shouldLoadContractDetails]);
 
   const filteredDocuments = useMemo(() => {
     if (!Array.isArray(documents)) return [];

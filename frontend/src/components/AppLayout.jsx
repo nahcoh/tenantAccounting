@@ -10,7 +10,8 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const [showPhaseMenu, setShowPhaseMenu] = useState(false);
   const location = useLocation();
-  const contractData = useContract();
+  const activeSection = location.pathname.split('/')[1] || '';
+  const contractData = useContract({ activeSection });
   const { user, clearAuth } = useAuth();
 
   useEffect(() => {
