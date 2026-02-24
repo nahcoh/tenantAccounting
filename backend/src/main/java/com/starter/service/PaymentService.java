@@ -12,6 +12,7 @@ import com.starter.repository.ContractRepository;
 import com.starter.repository.PaymentRepository;
 import com.starter.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class PaymentService {
 
@@ -41,6 +43,7 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public PaymentCalendarResponse getMonthlyPayments(Long userId, int year, int month) {
+        long startedAt = System.nanoTime();
         LocalDate today = LocalDate.now();
         List<PaymentResponse> monthlyPayments = buildMonthlyPaymentResponses(userId, year, month, today);
 
@@ -56,7 +59,16 @@ public class PaymentService {
 
         BigDecimal upcomingAmount = totalAmount.subtract(paidAmount);
 
-        return new PaymentCalendarResponse(year, month, totalAmount, paidAmount, upcomingAmount, monthlyPayments);
+        PaymentCalendarResponse response = new PaymentCalendarResponse(year, month, totalAmount, paidAmount, upcomingAmount, monthlyPayments);
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000;
+        if (elapsedMs >= 300) {
+            log.warn("Slow payment calendar query userId={} year={} month={} elapsedMs={} itemCount={}",
+                    userId, year, month, elapsedMs, monthlyPayments.size());
+        } else if (log.isDebugEnabled()) {
+            log.debug("Payment calendar query userId={} year={} month={} elapsedMs={} itemCount={}",
+                    userId, year, month, elapsedMs, monthlyPayments.size());
+        }
+        return response;
     }
 
     @Transactional
