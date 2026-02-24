@@ -4,35 +4,14 @@ import { PHASES } from '../lib/constants';
 import useContract from '../hooks/useContract';
 import AddModal from './AddModal';
 import api from '../api';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const [showPhaseMenu, setShowPhaseMenu] = useState(false);
-  const [userName, setUserName] = useState(null);
-  const [userRole, setUserRole] = useState('USER');
-  const [userProvider, setUserProvider] = useState('local');
-  const [userProfileImage, setUserProfileImage] = useState('');
   const location = useLocation();
   const contractData = useContract();
-
-  useEffect(() => {
-    const loadMe = async () => {
-      try {
-        const response = await api.get('/auth/me');
-        setUserName(response.data.name || null);
-        setUserRole(response.data.role || 'USER');
-        setUserProvider(response.data.provider || 'local');
-        setUserProfileImage(response.data.profileImage || '');
-      } catch {
-        setUserName(null);
-        setUserRole('USER');
-        setUserProvider('local');
-        setUserProfileImage('');
-      }
-    };
-
-    loadMe();
-  }, []);
+  const { user, clearAuth } = useAuth();
 
   useEffect(() => {
     setShowPhaseMenu(false);
@@ -42,6 +21,7 @@ export default function AppLayout() {
     try {
       await api.post('/auth/logout');
     } finally {
+      clearAuth();
       setShowPhaseMenu(false);
       navigate('/auth');
     }
@@ -51,6 +31,7 @@ export default function AppLayout() {
     if (!window.confirm('정말로 회원 탈퇴하시겠습니까? 모든 데이터가 삭제됩니다.')) return;
     try {
       await api.delete('/users/me');
+      clearAuth();
       setShowPhaseMenu(false);
       navigate('/auth');
     } catch (err) {
@@ -59,6 +40,10 @@ export default function AppLayout() {
     }
   };
 
+  const userName = user?.name || null;
+  const userRole = user?.role || 'USER';
+  const userProvider = user?.provider || 'local';
+  const userProfileImage = user?.profileImage || '';
   const providerLabel = userProvider === 'google' ? 'Google' : userProvider === 'kakao' ? 'Kakao' : 'User';
 
   return (

@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import api from './api';
+import { useAuth } from './contexts/AuthContext';
+import { resolvePostLoginRoute } from './lib/postLoginRoute';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -63,6 +65,7 @@ function useFieldValidation(formData, isLogin) {
 export default function TenantAuth() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { refreshMe } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -146,13 +149,12 @@ export default function TenantAuth() {
       await api.post(endpoint, payload);
       let sessionReady = false;
       for (let i = 0; i < 3; i += 1) {
-        try {
-          await api.get('/auth/me');
+        const currentUser = await refreshMe({ force: true });
+        if (currentUser) {
           sessionReady = true;
           break;
-        } catch {
-          await new Promise((resolve) => setTimeout(resolve, 200));
         }
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
       if (!sessionReady) {
         throw new Error('SESSION_NOT_READY');
@@ -172,7 +174,8 @@ export default function TenantAuth() {
         localStorage.removeItem('autoLogin');
       }
 
-      navigate('/cost/calendar');
+      const targetRoute = await resolvePostLoginRoute();
+      navigate(targetRoute);
     } catch (err) {
       if (err.message === 'SESSION_NOT_READY') {
         setError('로그인 세션 설정에 실패했습니다. 잠시 후 다시 시도해주세요.');
