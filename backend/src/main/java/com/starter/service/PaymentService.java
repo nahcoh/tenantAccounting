@@ -21,12 +21,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,72 +39,10 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final ContractRepository contractRepository;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PaymentCalendarResponse getMonthlyPayments(Long userId, int year, int month) {
-        LocalDate startDate = LocalDate.of(year, month, 1);
-        LocalDate endDate = startDate.with(TemporalAdjusters.lastDayOfMonth());
         LocalDate today = LocalDate.now();
-
-        // 해당 월의 실제 납부 내역 조회
-        List<Payment> actualPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, startDate, endDate);
-
-        // 연체 처리: UPCOMING 상태이고 납부일이 오늘보다 이전이면 OVERDUE로 변경
-        for (Payment payment : actualPayments) {
-            if (payment.getStatus() == PaymentStatus.UPCOMING &&
-                payment.getDueDate() != null &&
-                payment.getDueDate().isBefore(today)) {
-                payment.setStatus(PaymentStatus.OVERDUE);
-                paymentRepository.save(payment);
-            }
-        }
-
-        // 정기 납부 항목 조회 (전체)
-        List<Payment> recurringPayments = paymentRepository.findByUserIdAndIsRecurring(userId, true);
-
-        // 해당 월에 정기 납부 항목이 없으면 가상으로 추가
-        List<PaymentResponse> monthlyPayments = new ArrayList<>();
-
-        // 실제 납부 내역 추가
-        for (Payment payment : actualPayments) {
-            monthlyPayments.add(toPaymentResponse(payment));
-        }
-
-        // 정기 납부 항목 처리
-        for (Payment recurring : recurringPayments) {
-            Integer paymentDay = recurring.getPaymentDay();
-            if (paymentDay == null && recurring.getDueDate() != null) {
-                paymentDay = recurring.getDueDate().getDayOfMonth();
-            }
-            if (paymentDay == null) continue;
-
-            // 해당 월의 마지막 날보다 납부일이 크면 마지막 날로 조정
-            int lastDayOfMonth = endDate.getDayOfMonth();
-            int adjustedDay = Math.min(paymentDay, lastDayOfMonth);
-            LocalDate recurringDueDate = LocalDate.of(year, month, adjustedDay);
-
-            // 이미 해당 월에 같은 이름의 납부 내역이 있는지 확인
-            boolean alreadyExists = actualPayments.stream()
-                .anyMatch(p -> p.getName().equals(recurring.getName()) &&
-                              p.getCategory() == recurring.getCategory());
-
-            if (!alreadyExists) {
-                // 가상의 정기 납부 항목 생성 (조회용)
-                PaymentStatus status = recurringDueDate.isBefore(today) ? PaymentStatus.OVERDUE : PaymentStatus.UPCOMING;
-
-                PaymentResponse virtualPayment = new PaymentResponse();
-                virtualPayment.setId(recurring.getId() * -1); // 음수 ID로 가상 항목 표시
-                virtualPayment.setName(recurring.getName());
-                virtualPayment.setCategory(recurring.getCategory());
-                virtualPayment.setAmount(recurring.getAmount());
-                virtualPayment.setPaymentDay(adjustedDay);
-                virtualPayment.setStatus(status);
-                virtualPayment.setAutoPay(recurring.getAutoPay());
-                virtualPayment.setIsRecurring(true);
-                virtualPayment.setDueDate(recurringDueDate);
-                virtualPayment.setPaidDate(null);
-                monthlyPayments.add(virtualPayment);
-            }
-        }
+        List<PaymentResponse> monthlyPayments = buildMonthlyPaymentResponses(userId, year, month, today);
 
         // 금액 계산
         BigDecimal totalAmount = monthlyPayments.stream()
@@ -225,23 +164,23 @@ public class PaymentService {
     }
 
     private List<PaymentResponse> buildMonthlyPaymentResponses(Long userId, int year, int month) {
+        return buildMonthlyPaymentResponses(userId, year, month, LocalDate.now());
+    }
+
+    private List<PaymentResponse> buildMonthlyPaymentResponses(Long userId, int year, int month, LocalDate today) {
         LocalDate monthStart = LocalDate.of(year, month, 1);
         LocalDate monthEnd = monthStart.with(TemporalAdjusters.lastDayOfMonth());
-        LocalDate today = LocalDate.now();
 
         List<Payment> actualPayments = paymentRepository.findByUserIdAndDueDateBetween(userId, monthStart, monthEnd);
         List<Payment> recurringPayments = paymentRepository.findByUserIdAndIsRecurring(userId, true);
 
         List<PaymentResponse> monthlyPayments = new ArrayList<>();
+        Set<String> existingKeys = new HashSet<>();
 
         for (Payment payment : actualPayments) {
-            PaymentResponse response = toPaymentResponse(payment);
-            if (response.getStatus() == PaymentStatus.UPCOMING &&
-                    response.getDueDate() != null &&
-                    response.getDueDate().isBefore(today)) {
-                response.setStatus(PaymentStatus.OVERDUE);
-            }
+            PaymentResponse response = toPaymentResponseWithComputedStatus(payment, today);
             monthlyPayments.add(response);
+            existingKeys.add(buildRecurringKey(payment.getName(), payment.getCategory().name()));
         }
 
         for (Payment recurring : recurringPayments) {
@@ -254,9 +193,7 @@ public class PaymentService {
             int adjustedDay = Math.min(paymentDay, monthEnd.getDayOfMonth());
             LocalDate recurringDueDate = LocalDate.of(year, month, adjustedDay);
 
-            boolean alreadyExists = actualPayments.stream()
-                    .anyMatch(p -> p.getName().equals(recurring.getName()) &&
-                            p.getCategory() == recurring.getCategory());
+            boolean alreadyExists = existingKeys.contains(buildRecurringKey(recurring.getName(), recurring.getCategory().name()));
 
             if (!alreadyExists) {
                 PaymentStatus status = recurringDueDate.isBefore(today) ? PaymentStatus.OVERDUE : PaymentStatus.UPCOMING;
@@ -277,6 +214,10 @@ public class PaymentService {
         }
 
         return monthlyPayments;
+    }
+
+    private String buildRecurringKey(String name, String category) {
+        return category + "|" + name;
     }
 
     public List<PaymentResponse> getAllPayments(Long userId, PaymentStatus status) {
@@ -403,6 +344,16 @@ public class PaymentService {
         response.setPaidDate(payment.getPaidDate());
         response.setSourceType(payment.getSourceType());
         response.setSourceId(payment.getSourceId());
+        return response;
+    }
+
+    private PaymentResponse toPaymentResponseWithComputedStatus(Payment payment, LocalDate today) {
+        PaymentResponse response = toPaymentResponse(payment);
+        if (response.getStatus() == PaymentStatus.UPCOMING &&
+                response.getDueDate() != null &&
+                response.getDueDate().isBefore(today)) {
+            response.setStatus(PaymentStatus.OVERDUE);
+        }
         return response;
     }
 
