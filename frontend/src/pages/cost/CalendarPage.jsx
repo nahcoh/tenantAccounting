@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../api';
 import { getStatusStyle } from '../../lib/utils';
 
@@ -87,20 +87,9 @@ export default function CalendarPage() {
     fetchCalendarData();
   }, [fetchCalendarData]);
 
-  // 모달이 열려있을 때 선택된 날짜의 납부 내역 업데이트
-  useEffect(() => {
-    if (showModal && selectedDate && calendarData) {
-      const updatedPayments = calendarData.payments?.filter(p => p.paymentDay === selectedDate.day) || [];
-      if (JSON.stringify(updatedPayments) !== JSON.stringify(selectedDate.payments)) {
-        setSelectedDate(prev => ({ ...prev, payments: updatedPayments }));
-      }
-    }
-  }, [showModal, selectedDate, calendarData]);
-
   const handleDateClick = (dayInfo) => {
     if (!dayInfo.isCurrentMonth) return;
-    const dayPayments = calendarData?.payments?.filter(p => p.paymentDay === dayInfo.day) || [];
-    setSelectedDate({ ...dayInfo, payments: dayPayments });
+    setSelectedDate(dayInfo);
     setModalMode('view');
     setShowModal(true);
   };
@@ -196,45 +185,46 @@ export default function CalendarPage() {
     }
   };
 
-  if (calendarLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  const payments = useMemo(() => calendarData?.payments || [], [calendarData]);
 
-  if (error) {
-    return <div className="flex items-center justify-center py-12 text-red-500">{error}</div>;
-  }
+  const statusCounts = useMemo(() => {
+    const counts = { ALL: payments.length, UPCOMING: 0, PAID: 0, OVERDUE: 0 };
+    for (const payment of payments) {
+      const status = payment.status?.toUpperCase();
+      if (status === 'UPCOMING' || status === 'PAID' || status === 'OVERDUE') {
+        counts[status] += 1;
+      }
+    }
+    return counts;
+  }, [payments]);
 
-  const payments = calendarData?.payments || [];
+  const categoryCounts = useMemo(() => {
+    const counts = { ALL: payments.length, RENT: 0, MAINTENANCE: 0, LOAN: 0, UTILITY: 0 };
+    for (const payment of payments) {
+      if (payment.category && Object.prototype.hasOwnProperty.call(counts, payment.category)) {
+        counts[payment.category] += 1;
+      }
+    }
+    return counts;
+  }, [payments]);
 
-  // 상태 + 카테고리 필터링
-  const filteredPayments = payments.filter(p => {
-    const statusMatch = statusFilter === 'ALL' || p.status.toUpperCase() === statusFilter;
-    const categoryMatch = categoryFilter === 'ALL' || p.category === categoryFilter;
-    return statusMatch && categoryMatch;
-  });
+  const filteredPayments = useMemo(() => {
+    return payments.filter((payment) => {
+      const statusMatch = statusFilter === 'ALL' || payment.status?.toUpperCase() === statusFilter;
+      const categoryMatch = categoryFilter === 'ALL' || payment.category === categoryFilter;
+      return statusMatch && categoryMatch;
+    });
+  }, [payments, statusFilter, categoryFilter]);
 
-  const getPaymentsForDate = (day) => filteredPayments.filter(p => p.paymentDay === day);
-
-  // 상태별 개수
-  const statusCounts = {
-    ALL: payments.length,
-    UPCOMING: payments.filter(p => p.status.toUpperCase() === 'UPCOMING').length,
-    PAID: payments.filter(p => p.status.toUpperCase() === 'PAID').length,
-    OVERDUE: payments.filter(p => p.status.toUpperCase() === 'OVERDUE').length,
-  };
-
-  // 카테고리별 개수
-  const categoryCounts = {
-    ALL: payments.length,
-    RENT: payments.filter(p => p.category === 'RENT').length,
-    MAINTENANCE: payments.filter(p => p.category === 'MAINTENANCE').length,
-    LOAN: payments.filter(p => p.category === 'LOAN').length,
-    UTILITY: payments.filter(p => p.category === 'UTILITY').length,
-  };
+  const filteredPaymentsByDay = useMemo(() => {
+    const grouped = new Map();
+    for (const payment of filteredPayments) {
+      if (!payment.paymentDay) continue;
+      if (!grouped.has(payment.paymentDay)) grouped.set(payment.paymentDay, []);
+      grouped.get(payment.paymentDay).push(payment);
+    }
+    return grouped;
+  }, [filteredPayments]);
 
   const monthSummary = {
     total: calendarData?.totalAmount ?? 0,
@@ -242,10 +232,16 @@ export default function CalendarPage() {
     upcoming: calendarData?.upcomingAmount ?? 0,
   };
 
+  const overdueTotal = useMemo(() => {
+    return payments
+      .filter((payment) => payment.status?.toUpperCase() === 'OVERDUE')
+      .reduce((sum, payment) => sum + Number(payment.amount), 0);
+  }, [payments]);
+
   const getDaysInMonth = (year, month) => new Date(year, month, 0).getDate();
   const getFirstDayOfMonth = (year, month) => new Date(year, month - 1, 1).getDay();
 
-  const renderCalendar = () => {
+  const calendarDays = useMemo(() => {
     const daysInMonth = getDaysInMonth(calendarYear, calendarMonth);
     const firstDay = getFirstDayOfMonth(calendarYear, calendarMonth);
     const days = [];
@@ -256,17 +252,19 @@ export default function CalendarPage() {
     const todayDate = new Date();
     const isCurrentRealMonth = todayDate.getFullYear() === calendarYear && todayDate.getMonth() + 1 === calendarMonth;
     for (let day = 1; day <= daysInMonth; day++) {
-      const dayPayments = getPaymentsForDate(day);
+      const dayPayments = filteredPaymentsByDay.get(day) || [];
       days.push({ day, isCurrentMonth: true, isToday: isCurrentRealMonth && todayDate.getDate() === day, payments: dayPayments });
     }
-    const remainingDays = 42 - days.length;
+
+    // 7열 달력에서는 36칸 구성이 불가능해(7의 배수가 아님),
+    // 필요한 주차(4/5/6주)만 그리도록 고정 42칸 대신 동적 칸 수로 렌더링한다.
+    const totalCells = Math.ceil(days.length / 7) * 7;
+    const remainingDays = totalCells - days.length;
     for (let i = 1; i <= remainingDays; i++) {
       days.push({ day: i, isCurrentMonth: false, payments: [] });
     }
     return days;
-  };
-
-  const calendarDays = renderCalendar();
+  }, [calendarYear, calendarMonth, filteredPaymentsByDay]);
 
   const prevMonth = () => {
     if (calendarMonth === 1) { setCalendarMonth(12); setCalendarYear(calendarYear - 1); }
@@ -302,8 +300,22 @@ export default function CalendarPage() {
     setShowDateNavigator(false);
   };
 
-  // 모달 내 선택된 날짜의 납부 내역
-  const selectedDatePayments = selectedDate?.payments || [];
+  const selectedDatePayments = useMemo(() => {
+    if (!selectedDate?.day) return [];
+    return filteredPaymentsByDay.get(selectedDate.day) || [];
+  }, [selectedDate, filteredPaymentsByDay]);
+
+  if (calendarLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="flex items-center justify-center py-12 text-red-500">{error}</div>;
+  }
 
   return (
     <div className="space-y-4">
@@ -327,8 +339,7 @@ export default function CalendarPage() {
           <div className="bg-white bg-opacity-20 rounded-xl p-3">
             <p className="text-blue-100 text-xs">미납</p>
             <p className="text-xl font-semibold">
-              {payments.filter(p => p.status.toUpperCase() === 'OVERDUE')
-                .reduce((sum, p) => sum + Number(p.amount), 0).toLocaleString()}원
+              {overdueTotal.toLocaleString()}원
             </p>
           </div>
         </div>
