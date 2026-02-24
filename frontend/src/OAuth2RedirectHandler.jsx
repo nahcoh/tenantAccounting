@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { resolvePostLoginRoute } from './lib/postLoginRoute';
 
 const OAuth2RedirectHandler = () => {
   const navigate = useNavigate();
@@ -11,7 +12,8 @@ const OAuth2RedirectHandler = () => {
       for (let i = 0; i < 3; i += 1) {
         const currentUser = await refreshMe({ force: true });
         if (currentUser) {
-          navigate('/cost/calendar', { replace: true });
+          const targetRoute = await resolvePostLoginRoute();
+          navigate(targetRoute, { replace: true });
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 200));
