@@ -16,18 +16,18 @@ public class OpenApiConfig {
     public OpenAPI openAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("AI Native Starter Kit API")
-                        .description("AI Native Developer Starter Kit Backend REST API Documentation")
-                        .version("v1.0.0")
+                        .title("Ziplog API")
+                        .description("Ziplog Backend REST API Documentation")
+                        .version("v1")
                         .contact(new Contact()
-                                .name("Your Team")
-                                .email("contact@example.com")))
+                                .name("Ziplog Team")
+                                .email("support@ziplog.kr")))
                 .servers(List.of(
                         new Server()
                                 .url("http://localhost:8080")
                                 .description("Local Development Server"),
                         new Server()
-                                .url("https://api.example.com")
+                                .url("https://api.ziplog.kr")
                                 .description("Production Server")
                 ));
     }
