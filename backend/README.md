@@ -1,193 +1,180 @@
-# AI Native Developer Starter Kit - Backend
+# Ziplog Backend
 
-Spring Boot 기반 백엔드 API 서버입니다.
+Ziplog의 Spring Boot API 서버입니다.
+
+## 역할
+
+- 이메일/JWT 인증과 Google/Kakao OAuth2 로그인
+- 계약, 보증금 원천, 대출, 공과금, 납부 일정 API
+- 서류, 특약, 체크리스트, 유지보수 기록 API
+- 문의/관리자 답변 API
+- 첨부파일 로컬 저장 또는 S3 저장
+- Swagger/OpenAPI 문서 제공
 
 ## 기술 스택
 
-- **Framework**: Spring Boot 3.2.10
-- **Language**: Java 17
-- **Build Tool**: Gradle 8.10
-- **Database**: PostgreSQL
-- **ORM**: Spring Data JPA (Hibernate)
-- **Documentation**: Springdoc OpenAPI 3 (Swagger)
+- Java 17
+- Spring Boot 3.2.10
+- Spring Security
+- Spring Data JPA / Hibernate
+- Spring OAuth2 Client
+- Spring Actuator
+- MySQL 8
+- H2(test)
+- Redis optional
+- AWS SDK for S3
+- JJWT
+- Springdoc OpenAPI
+- Gradle 8.10 wrapper
 
-## 프로젝트 구조
+## 주요 구조
 
-```
+```text
 backend/
 ├── src/main/java/com/starter/
-│   ├── config/           # 설정 클래스 (Swagger, CORS 등)
-│   ├── controller/       # REST API 컨트롤러
-│   ├── service/          # 비즈니스 로직
-│   ├── repository/       # 데이터 액세스 레이어
-│   ├── domain/           # JPA 엔티티
-│   ├── dto/              # Data Transfer Objects
+│   ├── advice/              # 전역 예외 처리
+│   ├── config/              # Security, Redis, S3, OpenAPI, multipart 설정
+│   ├── controller/          # REST API
+│   ├── domain/              # JPA 엔티티
+│   ├── dto/                 # 요청/응답 DTO
+│   ├── enums/               # 도메인 enum
+│   ├── repository/          # JPA repository
+│   ├── security/            # JWT, UserDetails, OAuth2 지원
+│   ├── service/             # 비즈니스 로직
+│   ├── utils/               # 쿠키 유틸
 │   └── StarterApplication.java
 ├── src/main/resources/
-│   ├── application.yml        # 기본 설정
-│   ├── application-local.yml  # 로컬 개발 환경 설정
-│   └── application-prod.yml   # 프로덕션 환경 설정
-├── src/test/             # 테스트 코드
-├── build.gradle          # Gradle 빌드 설정
-└── README.md             # 이 파일
+│   ├── application.yml
+│   ├── application-prod.yml
+│   ├── application-test.yml
+│   └── db/migration/
+├── Dockerfile
+├── build.gradle
+└── README.md
 ```
 
-## 시작하기
+## 로컬 실행
 
-### 사전 요구사항
+### 1. MySQL 실행
 
-- Java 17 이상
-- PostgreSQL 15 이상 권장 (선택 사항 - Health Check API는 DB 없이 동작)
-
-### 환경 변수 설정
-
-로컬 개발 환경에서는 환경 변수를 설정할 필요가 없습니다. `application-local.yml`에 기본 설정이 포함되어 있습니다.
-
-**프로덕션 환경**에서는 다음 환경 변수를 설정하세요:
+루트 디렉터리에서:
 
 ```bash
-# 필수 설정
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/your_db_name
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=your_secure_password
-
-# 선택 설정 (프로젝트별 추가)
-# CLAUDE_API_KEY=your_anthropic_api_key
-# SENTRY_DSN=your_sentry_dsn
-# LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
-# LANGFUSE_SECRET_KEY=your_langfuse_secret_key
+docker compose up -d mysql
 ```
 
-### 애플리케이션 실행
+기본 DB 설정:
+
+- URL: `jdbc:mysql://localhost:3306/tenantAccounting`
+- Username: `root`
+- Password: `password`
+
+### 2. 애플리케이션 실행
 
 ```bash
-# 빌드
-./gradlew clean build
-
-# 실행 (local 프로파일)
-SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
-
-# 또는 JAR 파일로 실행
-java -jar build/libs/backend-0.0.1-SNAPSHOT.jar
+JWT_SECRET=localJwtSecretKeyThatIsAtLeast256BitsLongForHS256Token ./gradlew bootRun
 ```
 
-서버가 시작되면 http://localhost:8080 에서 접근 가능합니다.
+기본 프로파일은 `local`입니다. `application.yml`의 `spring.profiles.default`가 `local`로 설정되어 있습니다.
 
-## API 문서
+### 3. API 문서 확인
 
-애플리케이션 실행 후 Swagger UI를 통해 API 문서를 확인할 수 있습니다:
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/api-docs`
+- Health check: `http://localhost:8080/actuator/health`
 
-- **Swagger UI**: http://localhost:8080/swagger-ui.html
-- **OpenAPI JSON**: http://localhost:8080/api-docs
-
-### API 문서 작성 가이드
-
-새로운 API를 추가할 때는 다음 어노테이션을 사용하여 문서화하세요:
-
-#### Controller 레벨
-```java
-@Tag(name = "API 그룹명", description = "API 그룹 설명")
-@RestController
-@RequestMapping("/api/v1/...")
-public class YourController {
-    // ...
-}
-```
-
-#### 메서드 레벨
-```java
-@Operation(summary = "API 요약", description = "API 상세 설명")
-@ApiResponses(value = {
-    @ApiResponse(
-        responseCode = "200",
-        description = "성공",
-        content = @Content(schema = @Schema(implementation = ResponseDto.class))
-    ),
-    @ApiResponse(responseCode = "400", description = "잘못된 요청"),
-    @ApiResponse(responseCode = "500", description = "서버 오류")
-})
-@PostMapping("/endpoint")
-public ResponseEntity<ResponseDto> yourMethod(@Valid @RequestBody RequestDto request) {
-    // ...
-}
-```
-
-#### DTO 레벨
-```java
-@Schema(description = "요청/응답 DTO 설명")
-public class YourDto {
-
-    @Schema(description = "필드 설명", example = "예시 값", required = true)
-    private String field;
-
-    // ...
-}
-```
-
-## 주요 엔드포인트
-
-### Health Check
-
-서버 상태를 확인합니다.
-
-```bash
-GET /api/v1/health
-```
-
-**응답 예시:**
-```json
-{
-  "status": "UP",
-  "message": "Backend API 서버가 정상적으로 실행 중입니다.",
-  "timestamp": "2025-10-20T09:30:00.000000",
-  "version": "0.0.1-SNAPSHOT"
-}
-```
-
-## 개발 가이드
-
-### 코드 스타일
-
-- Java 17 features 사용
-- Lombok 어노테이션 활용
-- RESTful API 규칙 준수
-- DTO 패턴 사용 (Entity 직접 반환 금지)
-
-### 테스트 실행
+## 테스트와 빌드
 
 ```bash
 ./gradlew test
-```
-
-### 빌드 (테스트 제외)
-
-```bash
+./gradlew clean build
 ./gradlew clean build -x test
 ```
 
-## 배포
+`application-test.yml`은 H2 메모리 DB를 사용합니다.
 
-### Docker
+## 주요 API
+
+기본 prefix는 `/api`입니다.
+
+| 영역 | 엔드포인트 |
+| --- | --- |
+| 인증 | `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`, `DELETE /api/users/me` |
+| OAuth2 | `GET /oauth2/authorize/{provider}`, `GET /login/oauth2/code/{provider}` |
+| 계약 | `/api/contracts` |
+| 서류 | `/api/contracts/{contractId}/documents`, `/api/documents/{id}` |
+| 특약 | `/api/contracts/{contractId}/special-terms`, `/api/special-terms/{id}` |
+| 체크리스트 | `/api/contracts/{contractId}/checklists`, `/api/checklists/{id}` |
+| 유지보수 | `/api/contracts/{contractId}/maintenances`, `/api/maintenances/{id}` |
+| 납부 | `/api/payments`, `/api/payments/calendar/{year}/{month}`, `/api/payments/overview/{year}/{month}` |
+| 공과금 | `/api/utilities` |
+| 대출 | `/api/loans` |
+| 문의 | `/api/inquiries`, `/api/inquiries/mine` |
+| 관리자 문의 | `/api/admin/inquiries` |
+
+파일 업로드/다운로드/미리보기 API는 서류, 특약, 체크리스트, 유지보수 도메인에 각각 포함되어 있습니다.
+
+## 인증과 보안
+
+- 기본 인증 방식은 JWT access/refresh token입니다.
+- 토큰은 쿠키 기반으로 주고받습니다.
+- `SecurityConfig`에서 `/api/auth/signup`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/check-email`, OAuth2 경로, actuator health, Swagger 경로만 공개합니다.
+- `/api/admin/inquiries/**`는 `ADMIN` 역할이 필요합니다.
+- CORS 허용 origin은 `CORS_ALLOWED_ORIGINS`로 쉼표 구분 설정합니다.
+
+## 환경 변수
+
+`application.yml`, `application-prod.yml`, `.env.prod.example`, `docker-compose.prod.yml`을 기준으로 관리합니다.
+
+| 변수 | 설명 | 기본값 |
+| --- | --- | --- |
+| `SPRING_DATASOURCE_URL` | MySQL JDBC URL | `jdbc:mysql://localhost:3306/tenantAccounting` |
+| `SPRING_DATASOURCE_USERNAME` | DB 사용자 | `root` |
+| `SPRING_DATASOURCE_PASSWORD` | DB 비밀번호 | `password` |
+| `JWT_SECRET` | JWT 서명 키 | 없음, 실행 시 필요 |
+| `JWT_ACCESS_TOKEN_EXPIRATION` | access token 만료 ms | `3600000` |
+| `JWT_REFRESH_TOKEN_EXPIRATION` | refresh token 만료 ms | `604800000` |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth2 | `not-set` |
+| `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET` | Kakao OAuth2 | `not-set` |
+| `GOOGLE_REDIRECT_URI`, `KAKAO_REDIRECT_URI` | OAuth2 provider redirect URI | `https://ziplog.kr/login/oauth2/code/*` |
+| `OAUTH2_REDIRECT_URI` | 로그인 성공 후 프론트 이동 URI | `https://ziplog.kr/oauth/redirect` |
+| `CORS_ALLOWED_ORIGINS` | 허용 origin 목록 | `https://ziplog.kr` |
+| `AUTH_COOKIE_DOMAIN` | 인증 쿠키 domain | prod: `.ziplog.kr` |
+| `AUTH_COOKIE_SECURE` | secure cookie 여부 | `true` |
+| `AUTH_COOKIE_SAME_SITE` | SameSite 정책 | local: `Lax`, prod: `None` |
+| `FILE_UPLOAD_DIR` | 로컬 업로드 경로 | `./uploads` |
+| `STORAGE_S3_ENABLED` | S3 저장 활성화 | `false` |
+| `AWS_S3_BUCKET` | S3 버킷 | 빈 값 |
+| `AWS_REGION` | AWS region | `ap-northeast-2` |
+| `AWS_S3_PREFIX` | S3 object prefix | `checklists` |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_ENABLED` | Redis 설정 | optional |
+
+## Docker 운영
+
+루트 디렉터리에서:
 
 ```bash
-# Docker 이미지 빌드
-docker build -t backend:latest .
-
-# 컨테이너 실행
-docker run -p 8080:8080 \
-  -e SPRING_PROFILES_ACTIVE=prod \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/your_db_name \
-  -e SPRING_DATASOURCE_USERNAME=postgres \
-  -e SPRING_DATASOURCE_PASSWORD=your_password \
-  backend:latest
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-### AWS ECS / Kubernetes
+운영 compose는 다음 서비스를 띄웁니다.
 
-배포 관련 설정은 `terraform/` 디렉토리 및 `.github/workflows/` 파일을 참고하세요.
+- `mysql`: MySQL 8, volume `ziplog_mysql_data`
+- `backend`: Spring Boot API, `SPRING_PROFILES_ACTIVE=prod`, 포트 `8080`
 
-## 문의 및 지원
+운영 배포 workflow는 서버에서 `.env`를 재생성하고, 기존 DB 컨테이너가 있으면 배포 전 `mysqldump` 백업을 생성합니다.
 
-- **문서**: [프로젝트 README](../README.md)
-- **Frontend**: [Frontend 가이드](../frontend/CLAUDE.md)
-- **Issues**: GitHub Issues에 버그 또는 기능 요청 등록
+## 데이터베이스와 마이그레이션
+
+- 기본 JPA ddl-auto는 `validate`입니다.
+- 운영 compose는 `SPRING_JPA_HIBERNATE_DDL_AUTO`를 환경 변수로 주입하며 기본값은 `update`입니다.
+- Flyway는 설정상 활성화되어 있고 migration 파일은 `src/main/resources/db/migration/`에 있습니다.
+
+스키마 변경 시 운영 영향이 있으므로 엔티티, migration, `ddl-auto` 전략을 함께 확인합니다.
+
+## 개발 규칙
+
+- Entity를 컨트롤러 응답으로 직접 노출하지 않고 DTO를 사용합니다.
+- 인증이 필요한 API는 `UserPrincipal` 기준으로 현재 사용자를 확인합니다.
+- 파일 API 변경 시 로컬 저장과 S3 저장 경로를 모두 확인합니다.
+- 새 API 추가 시 Swagger 어노테이션 또는 명확한 DTO 이름으로 문서성을 유지합니다.

@@ -1,10 +1,7 @@
-version: '3.8'
-
 services:
-  # MySQL Database
   mysql:
     image: mysql:8.0
-    container_name: tenantAccounting-mysql
+    container_name: ziplog-local-mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-tenantAccounting}
@@ -12,65 +9,13 @@ services:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-    networks:
-      - tenantAccounting-network
     healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  # Backend Spring Boot Application
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: tenantAccounting-backend
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-tenantAccounting}
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
-      SPRING_PROFILES_ACTIVE: local
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./backend:/app
-      - gradle_cache:/root/.gradle
-    networks:
-      - tenantAccounting-network
-    depends_on:
-      mysql:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Frontend Next.js Application
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: starter-frontend
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080/api/v1
-      WATCHPACK_POLLING: 'true'
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    networks:
-      - tenantAccounting-network
-    depends_on:
-      - backend
-    restart: unless-stopped
-
 volumes:
   mysql_data:
     driver: local
-  gradle_cache:
-    driver: local
-
-networks:
-  tenantAccounting-network:
-    driver: bridge

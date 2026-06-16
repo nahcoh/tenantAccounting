@@ -1,134 +1,153 @@
-# Ziplog (Tenant Housing Record App)
+# Ziplog
 
-세입자의 계약 전/중/후 업무를 기록/관리하는 서비스입니다.
+Ziplog는 세입자의 임대차 계약 전, 입주 중, 퇴거 후 기록을 한 곳에서 관리하는 주거 기록 서비스입니다.
 
-운영 상태:
-- 프로덕션 도메인: `https://ziplog.kr`
+## 현재 운영 구조
+
+- 서비스 도메인: `https://ziplog.kr`
 - API 도메인: `https://api.ziplog.kr`
-- 현재 실제 운영 중
+- Frontend: React/Vite 정적 빌드, S3 + CloudFront 배포
+- Backend: Spring Boot Docker 이미지, 운영 서버의 Docker Compose로 배포
+- Database: MySQL 8 컨테이너
+- File storage: 로컬 업로드 디렉터리 또는 S3
+- API ingress: Cloudflare Tunnel 또는 API 도메인 라우팅
+- CI/CD: GitHub Actions
 
-## 핵심 기능
+## 주요 기능
 
-- 계약/서류/특약/체크리스트/유지보수/공과금/납부 일정 관리
-- JWT + OAuth2 로그인(`Google`, `Kakao`)
-- 문의하기/운영진 문의함 기능
-- 체크리스트 파일 업로드(S3 저장)
+- 이메일/JWT 로그인, Google/Kakao OAuth2 로그인
+- 임대차 계약, 보증금 원천, 대출, 공과금, 납부 일정 관리
+- 계약 전 서류, 특약, 체크리스트 관리
+- 입주 중 유지보수 기록, 첨부파일 업로드/미리보기/다운로드
+- 퇴거 체크리스트 관리
+- 사용자 문의 및 관리자 답변
+
+## 저장소 구조
+
+```text
+.
+├── frontend/                 # React 18 + Vite 클라이언트
+├── backend/                  # Java 17 + Spring Boot API 서버
+├── terraform/                # AWS ECS/RDS 기반 Terraform 구성
+├── docs/                     # 배포, OIDC, GitHub Secrets 운영 문서
+├── .github/workflows/        # CI/CD 워크플로우
+├── docker-compose.prod.yml   # 운영 백엔드 + MySQL Compose
+├── docker-compose.yml        # 로컬 MySQL Compose
+└── README.md                 # 프로젝트 전체 개요
+```
+
+역할별 상세 문서는 아래 README를 기준으로 관리합니다.
+
+- Frontend: [frontend/README.md](./frontend/README.md)
+- Backend: [backend/README.md](./backend/README.md)
+- Infrastructure: [terraform/README.md](./terraform/README.md)
+- Operations docs: [docs/README.md](./docs/README.md)
 
 ## 기술 스택
 
-- Frontend: `React 18`, `Vite`, `Tailwind CSS`, `React Router`, `Axios`
-- Backend: `Java 17`, `Spring Boot 3.2`, `Spring Security`, `Spring Data JPA`
-- Database: `MySQL 8`
-- Infra(Frontend): `S3 + CloudFront`
-- Infra(Backend): `Home Server(Ubuntu) + Docker Compose + Cloudflare Tunnel`
-- CI/CD: `GitHub Actions`
-
-## 운영 아키텍처
-
-- 사용자 -> `ziplog.kr` -> CloudFront -> S3(정적 프론트)
-- 프론트 API 호출 -> `api.ziplog.kr` -> Cloudflare Tunnel -> Home Server Backend(`:8080`)
-- Backend -> MySQL 컨테이너
-- 파일 저장 -> S3
-
-## 배포 파이프라인
-
-워크플로우:
-- `/Users/nahcoh/Desktop/Dev.Web/tanent_record/.github/workflows/frontend-deploy.yml`
-- `/Users/nahcoh/Desktop/Dev.Web/tanent_record/.github/workflows/backend-deploy.yml`
-- `/Users/nahcoh/Desktop/Dev.Web/tanent_record/.github/workflows/ci.yml`
-
-트리거:
-- `main` 브랜치 push 시 프로덕션 배포
-- `frontend/**` 변경 시 프론트 배포
-- `backend/**` 또는 `docker-compose.prod.yml` 변경 시 백엔드 배포
-- CI는 `main`, `develop`에서 동작
-
-프론트 배포:
-- `frontend` 빌드
-- S3 sync
-- CloudFront invalidation
-
-백엔드 배포:
-- 원격 서버(`/home/<user>/ziplog`)에 코드 전송
-- `.env` 재생성(Secrets 주입)
-- `docker compose -f docker-compose.prod.yml up -d --build --force-recreate --remove-orphans`
-- 헬스체크 및 런타임 검증
+| 영역 | 스택 |
+| --- | --- |
+| Frontend | React 18, Vite 5, React Router 7, Axios, Tailwind CSS, lucide-react |
+| Backend | Java 17, Spring Boot 3.2.10, Spring Security, Spring Data JPA, Springdoc OpenAPI |
+| Data | MySQL 8, H2(test), Redis optional |
+| Auth | JWT access/refresh cookie, Google OAuth2, Kakao OAuth2 |
+| Storage | Local filesystem, AWS S3 optional |
+| Infra | S3, CloudFront, Docker Compose, Cloudflare Tunnel, Terraform AWS modules |
+| CI/CD | GitHub Actions, npm, Gradle, AWS CLI, SSH/SCP deploy |
 
 ## 로컬 실행
 
-프론트:
+### 1. 데이터베이스
+
+```bash
+docker compose up -d mysql
+```
+
+`docker-compose.yml`은 로컬 개발용 MySQL만 실행합니다. 프론트와 백엔드는 각각 `npm run dev`, `./gradlew bootRun`으로 실행합니다.
+
+### 2. 백엔드
+
+```bash
+cd backend
+JWT_SECRET=localJwtSecretKeyThatIsAtLeast256BitsLongForHS256Token ./gradlew bootRun
+```
+
+기본 프로파일은 `local`이며 기본 DB URL은 `jdbc:mysql://localhost:3306/tenantAccounting`입니다.
+
+### 3. 프론트엔드
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-백엔드:
+Vite 개발 서버는 `/api` 요청을 `http://localhost:8080`으로 프록시합니다.
+
+## 검증 명령
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
 ```bash
 cd backend
-./gradlew bootRun
+./gradlew clean build
 ```
 
-프로덕션 유사(Docker):
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
-```
+## 배포 흐름
 
-## 주요 환경변수(백엔드)
+프론트 배포는 `.github/workflows/frontend-deploy.yml`에서 관리합니다.
 
-- DB: `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`
-- JWT: `JWT_SECRET`
-- OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`
-- CORS/Cookie: `CORS_ALLOWED_ORIGINS`, `AUTH_COOKIE_DOMAIN`
-- S3: `STORAGE_S3_ENABLED`, `AWS_S3_BUCKET`, `AWS_REGION`, `AWS_S3_PREFIX`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- `main` 브랜치의 `frontend/**` 변경 또는 수동 실행
+- Node 20에서 `npm ci`, `npm run lint`, `npm run build`
+- `frontend/dist`를 S3에 동기화
+- CloudFront 캐시 무효화
 
-## 운영 점검 커맨드
+백엔드 배포는 `.github/workflows/backend-deploy.yml`에서 관리합니다.
 
-컨테이너 상태:
+- `main` 브랜치의 `backend/**` 또는 `docker-compose.prod.yml` 변경 또는 수동 실행
+- 운영 서버 `/home/<user>/ziplog`로 소스 복사
+- GitHub Secrets 기반 `.env` 생성
+- 기존 MySQL 컨테이너가 있으면 배포 전 덤프 백업 생성
+- `docker compose -f docker-compose.prod.yml up -d --build --force-recreate --remove-orphans`
+- `/api/auth/me` 런타임 검증
+
+CI는 `.github/workflows/ci.yml`에서 프론트와 백엔드 변경 경로를 분리해 실행합니다.
+
+## 운영 점검
+
+운영 서버에서:
+
 ```bash
 docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs backend --since=10m
 ```
 
-백엔드 로그:
-```bash
-docker compose -f docker-compose.prod.yml logs backend --since=10m | tail -n 300
-```
+외부에서:
 
-API 상태 점검:
 ```bash
 curl -i https://api.ziplog.kr/api/auth/me
 ```
 
-## 최근 성능 최적화 (비용관리 탭)
+인증되지 않은 요청은 정상적으로 `401`을 반환할 수 있습니다.
 
-- 백엔드(`/api/payments/calendar/{year}/{month}`)
-- 조회 시 DB 업데이트를 제거하고 읽기 전용 계산으로 변경
-- 정기 납부 중복 확인을 `stream anyMatch` 반복에서 `Set` 기반으로 최적화
+## 환경 변수
 
-- 프론트(`cost/calendar`)
-- 상태/카테고리 카운트, 일자별 매핑을 `useMemo`로 캐싱
-- 일자별 `filter` 반복 제거(`Map<day, payments[]>` 사용)
-- 고정 42칸 렌더 제거, 필요한 주차만 동적 렌더(28/35/42칸)
-- 비용관리 진입 시 계약 상세 API(문서/특약/체크리스트/유지보수) 지연 로딩
-  - `before/during/after` 진입 시에만 조회
+운영 백엔드의 주요 변수는 `.env.prod.example`과 `docker-compose.prod.yml`을 기준으로 합니다.
 
-## 성능 측정 방법 (운영)
+- `MYSQL_ROOT_PASSWORD`, `MYSQL_DATABASE`
+- `JWT_SECRET`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`
+- `CORS_ALLOWED_ORIGINS`, `AUTH_COOKIE_DOMAIN`
+- `STORAGE_S3_ENABLED`, `AWS_S3_BUCKET`, `AWS_REGION`, `AWS_S3_PREFIX`
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 
-브라우저(프론트):
-```js
-localStorage.setItem('perf_debug', '1')
-```
-- `https://ziplog.kr/cost/calendar` 접속 후 콘솔에서 `console.table` 확인
-- 측정값: `api_ms`, `ui_total_ms`, `payment_count`, `rendered_cells`
+## 참고 사항
 
-서버(네트워크/백엔드 분리):
-```bash
-curl -s -o /dev/null -w 'local ttfb:%{time_starttransfer}s total:%{time_total}s\n' http://localhost:8080/api/payments/calendar/2026/2
-curl -s -o /dev/null -w 'public ttfb:%{time_starttransfer}s total:%{time_total}s\n' https://api.ziplog.kr/api/payments/calendar/2026/2
-```
-
-백엔드 슬로우 로그 확인:
-```bash
-cd ~/ziplog
-docker compose -f docker-compose.prod.yml logs backend --since=10m | grep "Slow payment calendar query"
-```
+- 실제 API prefix는 `/api`입니다. 오래된 `/api/v1` 문서는 현재 코드 기준과 다를 수 있습니다.
+- `terraform/`은 AWS ECS/RDS 기반 인프라 구성이며, 현재 운영 Docker Compose 구조와 별개로 관리됩니다.
+- 문서가 실제 동작과 어긋나면 README보다 소스 코드, workflow, compose 설정을 우선 확인하고 README를 함께 갱신합니다.
