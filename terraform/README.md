@@ -1,306 +1,165 @@
-# AI Native Developer Starter Kit - Terraform Infrastructure
+# Ziplog Infrastructure
 
-AWS 인프라를 코드로 관리하기 위한 Terraform 구성입니다.
+이 디렉터리는 AWS ECS/RDS 기반 인프라를 Terraform으로 구성하기 위한 코드입니다.
 
-## 📁 프로젝트 구조
+현재 운영 배포는 루트의 `docker-compose.prod.yml`과 GitHub Actions SSH 배포를 사용합니다. 이 Terraform 구성은 AWS ECS/Fargate 기반 배포 경로를 만들거나 재검토할 때 사용하는 별도 인프라 코드입니다.
 
-```
+## 구성 리소스
+
+```text
 terraform/
-├── main.tf                 # 메인 구성 파일
-├── variables.tf            # 변수 정의
-├── outputs.tf              # 출력 값 정의
-├── terraform.tfvars.example # 변수 값 예시 (실제 사용 시 terraform.tfvars로 복사)
-├── .gitignore             # Git 제외 파일
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── terraform.tfvars.example
 ├── modules/
-│   ├── vpc/               # VPC, 서브넷, 보안 그룹, NAT
-│   ├── ecr/               # ECR 리포지토리
-│   ├── ecs/               # ECS 클러스터, 서비스, 태스크
-│   ├── rds/               # PostgreSQL RDS
-│   └── alb/               # Application Load Balancer
-└── README.md              # 이 파일
+│   ├── alb/      # Application Load Balancer, target group, listener
+│   ├── ecr/      # frontend/backend ECR repository
+│   ├── ecs/      # ECS cluster, task definition, service, CloudWatch logs
+│   ├── rds/      # RDS instance and subnet group
+│   └── vpc/      # VPC, public/private subnet, route table, NAT, security groups
+└── README.md
 ```
 
-## 🏗️ 인프라 구성
+## 아키텍처
 
-### VPC 네트워크
-- **VPC**: 10.0.0.0/16
-- **Public Subnets**: 2개 (가용 영역 2개)
-- **Private Subnets**: 2개 (가용 영역 2개)
-- **Internet Gateway**: Public 서브넷용
-- **NAT Gateway**: Private 서브넷 아웃바운드용
-- **보안 그룹**: ALB, ECS Tasks, RDS
+- VPC: `10.0.0.0/16`
+- Public subnets: ALB, NAT Gateway
+- Private subnets: ECS tasks, RDS
+- ECR: frontend/backend 이미지 저장소
+- ECS Fargate: frontend task, backend task
+- ALB: `/api/*`는 backend target group, 그 외 경로는 frontend target group
+- RDS: PostgreSQL 15.14
+- CloudWatch Logs: ECS 로그 그룹
 
-### ECR (Container Registry)
-- Frontend 이미지 리포지토리
-- Backend 이미지 리포지토리
-- 이미지 스캔 활성화
-- Lifecycle 정책: 최근 10개 이미지 유지
+주의: 현재 애플리케이션 백엔드는 MySQL을 기준으로 개발/운영되고 있습니다. 이 Terraform의 RDS 모듈은 PostgreSQL로 작성되어 있어 그대로 적용하면 현재 `application.yml`과 맞지 않습니다. AWS ECS 구성을 실제 운영 후보로 사용할 경우 RDS 엔진, JDBC URL, driver, DB 환경변수를 먼저 MySQL 기준으로 수정해야 합니다.
 
-### ECS (Container Orchestration)
-- **Cluster**: Fargate 기반
-- **Frontend Task**: 256 CPU / 512 MB
-- **Backend Task**: 512 CPU / 1024 MB
-- **CloudWatch Logs**: 7일 보관
-- **Auto Scaling**: 준비됨 (추후 설정)
+## 사전 요구사항
 
-### RDS (Database)
-- **Engine**: PostgreSQL 15.14
-- **Instance**: db.t3.small
-- **Multi-AZ**: 활성화
-- **Storage**: 20GB (gp3, 암호화)
-- **Backup**: 7일 보관
+- Terraform `>= 1.5`
+- AWS CLI
+- AWS 계정과 배포 권한
+- Docker/ECR 이미지 빌드 및 push 권한
 
-### ALB (Load Balancer)
-- Public Application Load Balancer
-- **Frontend**: 포트 3000 (/ 경로)
-- **Backend**: 포트 8080 (/api/* 경로)
-- Health Check 설정
-
-## 🚀 사용 방법
-
-### 1. 사전 준비
-
-**필수 도구 설치:**
 ```bash
-# Terraform 설치 (Homebrew)
-brew install terraform
-
-# AWS CLI 설치 및 구성
-brew install awscli
-aws configure
+terraform version
+aws sts get-caller-identity
 ```
 
-**AWS 자격 증명 설정:**
-```bash
-aws configure
-# AWS Access Key ID: [your-access-key]
-# AWS Secret Access Key: [your-secret-key]
-# Default region name: ap-northeast-1
-# Default output format: json
-```
-
-### 2. 설정 파일 준비
+## 설정
 
 ```bash
 cd terraform
-
-# terraform.tfvars 파일 생성 (example 파일 복사)
 cp terraform.tfvars.example terraform.tfvars
-
-# terraform.tfvars 파일 수정
-nano terraform.tfvars
 ```
 
-**필수 변경 사항:**
-- `db_password`: 안전한 데이터베이스 비밀번호로 변경
-- ~~`frontend_environment`: ALB DNS 자동 주입됨 (수동 설정 불필요)~~
-- ~~`backend_environment`: RDS 엔드포인트 자동 주입됨 (수동 설정 불필요)~~
+`terraform.tfvars`에서 최소한 아래 값을 확인합니다.
 
-**자동 설정되는 환경 변수:**
-- `NEXT_PUBLIC_API_BASE_URL`: ALB DNS로 자동 설정
-- `SPRING_DATASOURCE_URL`: RDS 엔드포인트로 자동 설정
+- `aws_region`
+- `project_name`
+- `db_name`
+- `db_username`
+- `db_password`
+- `db_engine_version`
+- `db_instance_class`
+- `db_multi_az`
+- `frontend_environment`
+- `backend_environment`
 
-### 3. Terraform 초기화
+현재 example 기본값은 Ziplog 운영값이 아닙니다.
+
+- `project_name = "starter"`
+- `db_name = "starter"`
+- RDS: PostgreSQL
+- backend DB user: `postgres`
+
+Ziplog 운영형 AWS 인프라로 사용하려면 project name과 DB 설정을 Ziplog/MySQL 기준으로 바꾼 뒤 plan을 검토합니다.
+
+## 실행
 
 ```bash
 terraform init
-```
-
-출력 예시:
-```
-Initializing modules...
-Initializing the backend...
-Initializing provider plugins...
-- Reusing previous version of hashicorp/aws from the dependency lock file
-- Using previously-installed hashicorp/aws v5.x.x
-
-Terraform has been successfully initialized!
-```
-
-### 4. 인프라 계획 확인
-
-```bash
+terraform fmt -recursive
+terraform validate
 terraform plan
-```
-
-이 명령어는 실제로 생성/변경/삭제될 리소스를 보여줍니다.
-
-### 5. 인프라 생성
-
-```bash
 terraform apply
 ```
 
-확인 메시지가 나오면 `yes`를 입력합니다.
-
-**예상 소요 시간**: 약 10-15분
-
-### 6. 출력 값 확인
+생성 결과 확인:
 
 ```bash
 terraform output
 ```
 
-주요 출력 값:
-- `alb_url`: 애플리케이션 접속 URL
-- `frontend_ecr_repository_url`: Frontend 이미지 푸시 URL
-- `backend_ecr_repository_url`: Backend 이미지 푸시 URL
-- `db_endpoint`: RDS 엔드포인트
+주요 output:
 
-## 📝 상태 관리 (Local State)
+- `alb_url`
+- `frontend_ecr_repository_url`
+- `backend_ecr_repository_url`
+- `ecs_cluster_name`
+- `frontend_service_name`
+- `backend_service_name`
+- `db_endpoint`
 
-이 프로젝트는 **로컬 state 파일**을 사용합니다.
+## 이미지 배포 흐름
 
-### State 파일 위치
-```
-terraform/terraform.tfstate
-```
+Terraform은 ECR repository와 ECS service를 만들지만 애플리케이션 이미지를 자동으로 빌드해서 push하지 않습니다.
 
-### ⚠️ 중요 주의사항
-
-1. **State 파일 백업 필수**
-   ```bash
-   # State 파일 백업 (실행 전후)
-   cp terraform.tfstate terraform.tfstate.backup
-   ```
-
-2. **Git에 커밋 금지**
-   - `.gitignore`에 자동으로 제외됨
-   - State 파일에는 민감한 정보(DB 비밀번호 등)가 포함됨
-
-3. **팀 협업 시 주의**
-   - 여러 사람이 동시에 `terraform apply` 실행 금지
-   - State 파일 충돌 방지를 위해 작업 전 공유 필요
-
-4. **State 파일 손실 시**
-   - 수동으로 인프라를 관리해야 함
-   - 또는 `terraform import`로 기존 리소스 가져오기 (복잡)
-
-### State 파일 복구 방법
-
-만약 state 파일을 잃어버렸다면:
+일반 흐름:
 
 ```bash
-# 1. 새 state 파일 생성
-terraform init
-
-# 2. 기존 리소스를 state로 가져오기 (예시)
-terraform import module.vpc.aws_vpc.main vpc-xxxxx
-terraform import module.rds.aws_db_instance.postgres starter-postgres
-# ... (모든 리소스에 대해 반복)
+aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com
 ```
 
-**권장**: 정기적으로 state 파일을 안전한 곳에 백업하세요.
+```bash
+cd backend
+docker build -t ziplog-backend .
+docker tag ziplog-backend:latest <backend-ecr-url>:latest
+docker push <backend-ecr-url>:latest
+```
 
-## 🧹 인프라 삭제
+프론트 이미지를 ECS로 운영하려면 현재 정적 S3/CloudFront 배포 방식과 별도로 frontend Dockerfile이 필요합니다. 현재 저장소에는 프론트 Dockerfile이 없고 Vite 정적 빌드 중심으로 운영됩니다.
 
-**⚠️ 주의**: 이 명령어는 모든 리소스를 삭제합니다!
+ECS 재배포:
+
+```bash
+aws ecs update-service \
+  --cluster <cluster-name> \
+  --service <service-name> \
+  --force-new-deployment \
+  --region ap-northeast-1
+```
+
+## State 관리
+
+현재 Terraform backend 설정이 없으므로 local state를 사용합니다.
+
+- state 파일: `terraform/terraform.tfstate`
+- 민감정보가 포함될 수 있으므로 Git에 커밋하지 않습니다.
+- 여러 사람이 동시에 `terraform apply`를 실행하지 않습니다.
+- 팀 운영이 필요하면 S3 backend + DynamoDB lock 구성을 먼저 추가합니다.
+
+백업 예:
+
+```bash
+cp terraform.tfstate terraform.tfstate.backup
+```
+
+## 삭제
 
 ```bash
 terraform destroy
 ```
 
-확인 메시지가 나오면 `yes`를 입력합니다.
+RDS 삭제 정책은 `skip_final_snapshot` 변수에 영향을 받습니다. 운영 데이터가 있는 환경에서는 destroy 전에 snapshot 정책과 state 대상을 반드시 확인합니다.
 
-**중요**: RDS는 `skip_final_snapshot=false`로 설정되어 있어 삭제 시 최종 스냅샷이 생성됩니다.
+## 현재 운영 인프라와의 관계
 
-## 🔧 일반적인 작업
+현재 production workflow 기준:
 
-### ECR에 이미지 푸시
+- Frontend: `frontend/dist` -> S3 -> CloudFront
+- Backend: GitHub Actions -> SSH/SCP -> 운영 서버 -> `docker-compose.prod.yml`
+- Database: 운영 서버의 MySQL 컨테이너 volume
+- Files: S3 optional
 
-```bash
-# 1. ECR 로그인
-aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com
-
-# 2. Frontend 이미지 빌드 및 푸시
-cd ../frontend
-docker build -t starter-frontend .
-docker tag starter-frontend:latest <frontend-ecr-url>:latest
-docker push <frontend-ecr-url>:latest
-
-# 3. Backend 이미지 빌드 및 푸시
-cd ../backend
-docker build -t starter-backend .
-docker tag starter-backend:latest <backend-ecr-url>:latest
-docker push <backend-ecr-url>:latest
-```
-
-### ECS 서비스 재시작
-
-```bash
-# Frontend 서비스 재시작
-aws ecs update-service --cluster starter-cluster --service starter-frontend-service --force-new-deployment --region ap-northeast-1
-
-# Backend 서비스 재시작
-aws ecs update-service --cluster starter-cluster --service starter-backend-service --force-new-deployment --region ap-northeast-1
-```
-
-### RDS 접속
-
-```bash
-# PostgreSQL 클라이언트로 접속
-psql -h <db-endpoint> -U postgres -d starter
-```
-
-## 📊 비용 예상 (월간)
-
-### 주요 리소스 비용 (ap-northeast-1 기준)
-- **NAT Gateway**: ~$32/월
-- **ALB**: ~$16/월
-- **ECS Fargate** (Frontend + Backend, 24/7 운영):
-  - Frontend (256/512): ~$14/월
-  - Backend (512/1024): ~$28/월
-- **RDS db.t3.small** (Multi-AZ): ~$58/월
-- **데이터 전송 및 기타**: ~$10/월
-
-**총 예상 비용**: 약 **$158/월**
-
-**비용 절감 팁**:
-- 개발 환경에서는 `db_multi_az = false` 설정 (~$29 절감)
-- ECS 서비스 `desired_count`를 0으로 설정하여 미사용 시 중지
-- NAT Gateway 대신 NAT Instance 사용 (복잡도 증가)
-
-## 🐛 트러블슈팅
-
-### Terraform init 실패
-```bash
-# 캐시 삭제 후 재시도
-rm -rf .terraform .terraform.lock.hcl
-terraform init
-```
-
-### Provider 버전 충돌
-```bash
-# Lock 파일 업데이트
-terraform init -upgrade
-```
-
-### State 잠금 오류
-```
-Error: Error acquiring the state lock
-```
-
-로컬 state 사용 시 이 오류는 발생하지 않지만, 프로세스가 중단된 경우:
-```bash
-# 강제로 잠금 해제 (주의!)
-terraform force-unlock <lock-id>
-```
-
-### 리소스 이미 존재 오류
-```bash
-# 기존 리소스를 state로 가져오기
-terraform import <resource-type>.<resource-name> <resource-id>
-```
-
-## 📚 참고 자료
-
-- [Terraform AWS Provider 문서](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [AWS ECS Fargate 가이드](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/AWS_Fargate.html)
-- [Terraform 베스트 프랙티스](https://www.terraform.io/docs/cloud/guides/recommended-practices/index.html)
-
-## 📞 지원
-
-문제가 발생하면:
-1. GitHub Issues 등록
-2. 이 README의 트러블슈팅 섹션 참고
-3. Terraform 공식 문서 확인
+따라서 운영 장애 대응이나 현재 배포 수정은 우선 루트 [README.md](../README.md), [backend/README.md](../backend/README.md), [docs/README.md](../docs/README.md), GitHub Actions workflow를 확인합니다.
